@@ -1,10 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kyushu-family-trip-navi-worker",
-  "main": "./src/index.js",
-  "compatibility_date": "2026-09-15",
-  "assets": {
-    "directory": "./public",
-    "binding": "ASSETS"
-  }
+  "main": "./worker.js",
+  "compatibility_date": "2026-09-15"
 }
