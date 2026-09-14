@@ -2,5 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kyushu-family-trip-navi-worker",
   "main": "worker.js",
-  "compatibility_date": "2026-09-14"
+  "compatibility_date": "2026-09-14",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kyushu-family-trip-navi-db",
+      "database_id": "f6cb945d-5715-4e61-b7a8-55a53fded3ce"
+    }
+  ]
 }
