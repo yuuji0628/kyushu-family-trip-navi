@@ -1,3 +1,17 @@
-GitHubルートの worker.js を置き換えてください。
-修正: D1検索で条件なしのとき .bind() を呼ばないように変更。
-確認用URL: /__diag
+【アップロードするファイル】
+worker.js だけをGitHubルート直下の既存 worker.js と置き換えてください。
+
+【確認済み】
+- JavaScript構文チェック
+- /api/articles?health=1
+- /__diag
+- /
+- /articles.html
+- /article.html?id=...
+- /admin.html
+- 条件なしD1検索時に .bind() を呼ばない
+
+【デプロイ後の確認順】
+1. /api/articles?health=1
+2. /__diag
+3. /

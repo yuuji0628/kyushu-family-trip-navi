@@ -1,0 +1,16 @@
+事前検証済み
+
+確認項目:
+- node --check: OK
+- /api/articles?health=1: 200 OK
+- /__diag: 200 OK
+- /: 200 HTML OK
+- /articles.html: 200 HTML OK
+- /article.html?id=...: 200 HTML OK
+- /admin.html: 200 HTML OK
+- 誤パスワード認証: 401 OK
+- 正しいパスワード認証: 200 OK
+- 条件なしD1検索で空bindを呼ばない: OK
+- 公開ページが必ずResponseを返す: OK
+
+GitHubでは worker.js だけをルート直下の既存 worker.js と置き換えてください。
