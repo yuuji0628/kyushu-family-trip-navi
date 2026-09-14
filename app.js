@@ -1,0 +1,39 @@
+const AREA = {fukuoka:'福岡',saga:'佐賀',nagasaki:'長崎',kumamoto:'熊本',oita:'大分',miyazaki:'宮崎',kagoshima:'鹿児島'};
+const CATEGORY = {hotel:'ホテル',spot:'観光',gourmet:'グルメ',plan:'モデルコース'};
+const STORE_KEY = 'kyushuFamilyTripNaviArticlesV1';
+
+async function baseArticles(){
+  try { const r = await fetch('articles.json'); return await r.json(); }
+  catch(e){ return []; }
+}
+async function getArticles(){
+  const base = await baseArticles();
+  const local = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+  const map = new Map(base.map(a=>[a.id,a]));
+  local.forEach(a=>map.set(a.id,a));
+  return [...map.values()].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+}
+function card(a){return `<article class="article-card"><a class="article-thumb" href="article.html?id=${encodeURIComponent(a.id)}"><span>${a.emoji||'🧳'}</span></a><div class="article-card-body"><div class="meta"><span>${AREA[a.area]||a.area}</span><span>${CATEGORY[a.category]||a.category}</span></div><h3><a href="article.html?id=${encodeURIComponent(a.id)}">${esc(a.title)}</a></h3><p>${esc(a.excerpt||'')}</p><div class="card-foot"><time>${a.date||''}</time><a href="article.html?id=${encodeURIComponent(a.id)}">続きを読む →</a></div></div></article>`}
+function esc(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function markdown(text=''){return text.split('\n').map(line=> line.startsWith('## ')?`<h2>${esc(line.slice(3))}</h2>`: line.trim()?`<p>${esc(line)}</p>`:'').join('')}
+function setupMenu(){const b=document.querySelector('.menu-btn'),n=document.querySelector('.main-nav'); if(!b||!n)return;b.onclick=()=>{const open=n.classList.toggle('open');b.setAttribute('aria-expanded',open)}}
+
+async function home(){const el=document.getElementById('featuredArticles'); if(!el)return; const arts=(await getArticles()).filter(a=>a.published).slice(0,3);el.innerHTML=arts.map(card).join('')}
+async function articlesPage(){const list=document.getElementById('articleList'); if(!list)return; const arts=(await getArticles()).filter(a=>a.published); const q=new URLSearchParams(location.search); const area=document.getElementById('areaFilter'),cat=document.getElementById('categoryFilter'),search=document.getElementById('searchInput'); area.value=q.get('area')||''; function render(){const s=search.value.trim().toLowerCase();const out=arts.filter(a=>(!area.value||a.area===area.value)&&(!cat.value||a.category===cat.value)&&(!s||`${a.title} ${a.excerpt} ${a.content}`.toLowerCase().includes(s)));list.innerHTML=out.map(card).join('');document.getElementById('resultCount').textContent=out.length;document.getElementById('emptyState').hidden=!!out.length} [search,area,cat].forEach(x=>x.addEventListener('input',render));render()}
+async function articlePage(){const el=document.getElementById('articleDetail'); if(!el)return; const id=new URLSearchParams(location.search).get('id'); const a=(await getArticles()).find(x=>x.id===id&&x.published); if(!a){el.innerHTML='<div class="empty-state"><h1>記事が見つかりません</h1><p><a href="articles.html">記事一覧へ戻る</a></p></div>';return} document.title=`${a.title}｜九州ファミリー旅ナビ`; el.innerHTML=`<div class="breadcrumbs"><a href="index.html">ホーム</a> / <a href="articles.html">記事一覧</a> / ${esc(a.title)}</div><header class="article-header"><div class="meta"><span>${AREA[a.area]}</span><span>${CATEGORY[a.category]}</span><time>${a.date||''}</time></div><h1>${esc(a.title)}</h1><p class="lead">${esc(a.excerpt||'')}</p><div class="article-cover">${a.emoji||'🧳'}</div></header><div class="article-body">${markdown(a.content)}</div><div class="article-back"><a class="btn btn-ghost" href="articles.html">← 記事一覧へ戻る</a></div>`}
+
+async function adminPage(){if(!document.getElementById('tab-dashboard'))return; const tabs=document.querySelectorAll('.admin-tab'); tabs.forEach(t=>t.onclick=()=>openTab(t.dataset.tab)); function openTab(name){tabs.forEach(x=>x.classList.toggle('active',x.dataset.tab===name));document.querySelectorAll('.admin-panel').forEach(p=>p.classList.remove('active'));document.getElementById(`tab-${name}`).classList.add('active'); if(name==='manage')renderManage()}
+ const base=await baseArticles(); if(!localStorage.getItem(STORE_KEY)) localStorage.setItem(STORE_KEY,'[]');
+ async function all(){return getArticles()}
+ function localOnly(){return JSON.parse(localStorage.getItem(STORE_KEY)||'[]')}
+ function saveLocal(arr){localStorage.setItem(STORE_KEY,JSON.stringify(arr))}
+ async function stats(){const a=await all();document.getElementById('statPublished').textContent=a.filter(x=>x.published).length;document.getElementById('statDraft').textContent=a.filter(x=>!x.published).length;document.getElementById('statTotal').textContent=a.length;document.getElementById('recentArticles').innerHTML=a.slice(0,5).map(x=>`<div class="admin-list-row"><div><strong>${esc(x.title)}</strong><small>${AREA[x.area]} ・ ${x.date||''}</small></div><span class="status ${x.published?'pub':'draft'}">${x.published?'公開':'下書き'}</span></div>`).join('')}
+ async function renderManage(){const a=await all();document.getElementById('manageArticles').innerHTML=a.map(x=>`<div class="admin-list-row"><div><strong>${esc(x.title)}</strong><small>${AREA[x.area]} / ${CATEGORY[x.category]} / ${x.date||''}</small></div><div class="row-actions"><span class="status ${x.published?'pub':'draft'}">${x.published?'公開':'下書き'}</span><button data-edit="${esc(x.id)}">編集</button><button class="danger" data-del="${esc(x.id)}">削除</button></div></div>`).join('');document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editArticle(b.dataset.edit));document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>deleteArticle(b.dataset.del))}
+ async function editArticle(id){const a=(await all()).find(x=>x.id===id); if(!a)return; ['articleId','title','area','category','emoji','excerpt','content'].forEach(k=>document.getElementById(k).value=a[k==='articleId'?'id':k]||'');document.getElementById('published').checked=!!a.published;document.getElementById('editorTitle').textContent='記事を編集';openTab('editor')}
+ async function deleteArticle(id){if(!confirm('この記事を削除しますか？'))return; const locals=localOnly(); const target=(await all()).find(x=>x.id===id); if(base.some(x=>x.id===id)){const hidden={...target,published:false,title:`${target.title}（削除済み）`,excerpt:'',content:''};saveLocal([...locals.filter(x=>x.id!==id),hidden])}else saveLocal(locals.filter(x=>x.id!==id)); await stats();renderManage()}
+ document.getElementById('articleForm').onsubmit=async e=>{e.preventDefault(); const oldId=document.getElementById('articleId').value; const id=oldId||slug(document.getElementById('title').value)+'-'+Date.now().toString().slice(-5); const item={id,title:document.getElementById('title').value.trim(),area:document.getElementById('area').value,category:document.getElementById('category').value,emoji:document.getElementById('emoji').value.trim()||'🧳',excerpt:document.getElementById('excerpt').value.trim(),content:document.getElementById('content').value.trim(),published:document.getElementById('published').checked,date:new Date().toISOString().slice(0,10)}; const locals=localOnly().filter(x=>x.id!==id);saveLocal([...locals,item]);document.getElementById('saveMessage').textContent='保存しました。';document.getElementById('articleId').value=id;await stats()};
+ document.getElementById('resetForm').onclick=()=>{document.getElementById('articleForm').reset();document.getElementById('articleId').value='';document.getElementById('emoji').value='🏨';document.getElementById('published').checked=true;document.getElementById('editorTitle').textContent='新規記事作成';document.getElementById('saveMessage').textContent=''};
+ function slug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-ぁ-んァ-ヶ一-龠]/g,'').slice(0,40)||'article'}
+ await stats();}
+
+document.addEventListener('DOMContentLoaded',()=>{setupMenu();home();articlesPage();articlePage();adminPage()});
