@@ -1,16 +1,27 @@
-事前検証済み
+事前検証結果
 
-確認項目:
+- diag route: OK
+- health route: OK
+- home route: OK
+- articles route: OK
+- article route: OK
+- admin route: OK
+- sitemap route: OK
+- robots route: OK
+- mobile menu: OK
+- canonical: OK
+- structured data: OK
+- scheduled publish: OK
+- safe empty bind: OK
 - node --check: OK
-- /api/articles?health=1: 200 OK
-- /__diag: 200 OK
-- /: 200 HTML OK
-- /articles.html: 200 HTML OK
-- /article.html?id=...: 200 HTML OK
-- /admin.html: 200 HTML OK
-- 誤パスワード認証: 401 OK
-- 正しいパスワード認証: 200 OK
-- 条件なしD1検索で空bindを呼ばない: OK
-- 公開ページが必ずResponseを返す: OK
+- mock D1 smoke test: OK
 
-GitHubでは worker.js だけをルート直下の既存 worker.js と置き換えてください。
+/api/articles?health=1 [33m200[39m application/json; charset=utf-8
+/__diag [33m200[39m application/json; charset=utf-8
+/ [33m200[39m text/html; charset=utf-8
+/articles.html [33m200[39m text/html; charset=utf-8
+/article.html?id=test [33m200[39m text/html; charset=utf-8
+/admin.html [33m200[39m text/html; charset=utf-8
+/sitemap.xml [33m200[39m application/xml; charset=utf-8
+/robots.txt [33m200[39m text/plain; charset=utf-8
+AUTH OK

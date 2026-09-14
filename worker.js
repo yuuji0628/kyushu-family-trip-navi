@@ -25,6 +25,12 @@ function parseJsonArray(v) {
   try { return v ? JSON.parse(v) : []; } catch { return []; }
 }
 
+function todayJst() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit"
+  }).format(new Date());
+}
+
 function normalizeRow(row) {
   if (!row) return null;
   return {
@@ -106,8 +112,17 @@ async function listArticles(db, opts = {}) {
   if (opts.id) { where.push("id = ?"); binds.push(opts.id); }
   if (opts.area) { where.push("area = ?"); binds.push(opts.area); }
   if (opts.category) { where.push("category = ?"); binds.push(opts.category); }
+  if (opts.q) {
+    where.push("(title LIKE ? OR excerpt LIKE ? OR content LIKE ?)");
+    const q = "%" + opts.q + "%";
+    binds.push(q, q, q);
+  }
   if (opts.featured) where.push("featured = 1");
-  if (opts.published !== false) where.push("published = 1");
+  if (opts.published !== false) {
+    where.push("published = 1");
+    where.push("(date IS NULL OR date = '' OR date <= ?)");
+    binds.push(todayJst());
+  }
   if (where.length) sql += " WHERE " + where.join(" AND ");
   sql += " ORDER BY COALESCE(updatedAt, date) DESC, date DESC";
   const stmt = db.prepare(sql);
@@ -132,33 +147,50 @@ function layout(title, body, extraHead = "") {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#168861">
 <title>${esc(title)}</title>
 ${extraHead}
 <style>
-:root{--ink:#18342d;--green:#168861;--green2:#0f6f50;--soft:#eef7f3;--line:#d8e6df;--muted:#6f817b;--cream:#fffaf0}
-*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:#fff;line-height:1.7}
-a{color:inherit}.wrap{max-width:1080px;margin:auto;padding:0 20px}.header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}
-.headerin{height:78px;display:flex;align-items:center;justify-content:space-between}.brand{font-weight:900;font-size:22px;text-decoration:none}.nav{display:flex;gap:22px}.nav a{text-decoration:none;font-weight:700}
-.hero{background:linear-gradient(135deg,#edf8f3,#fff8e5);padding:72px 0}.hero h1{font-size:clamp(38px,7vw,72px);line-height:1.12;margin:10px 0}.hero h1 span{color:var(--green)}.lead{font-size:20px;color:var(--muted);max-width:760px}
-.btns{display:flex;gap:12px;flex-wrap:wrap;margin:28px 0}.btn{display:inline-block;padding:14px 22px;border-radius:14px;background:var(--green);color:#fff;text-decoration:none;font-weight:800;border:1px solid var(--green)}.btn.sub{background:#fff;color:var(--ink);border-color:var(--line)}
+:root{--ink:#17372e;--green:#168861;--green2:#0f6f50;--soft:#eef7f3;--line:#d8e6df;--muted:#6f817b;--cream:#fffaf0;--shadow:0 16px 38px rgba(20,67,53,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;color:var(--ink);background:#fff;line-height:1.72}
+a{color:inherit}.wrap{max-width:1080px;margin:auto;padding:0 20px}.header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.95);border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}
+.headerin{min-height:78px;display:flex;align-items:center;justify-content:space-between;gap:18px}.brand{font-weight:900;font-size:22px;text-decoration:none;white-space:nowrap}.nav{display:flex;gap:22px}.nav a{text-decoration:none;font-weight:750}
+.menuBtn{display:none;border:1px solid var(--line);background:var(--soft);border-radius:14px;width:50px;height:50px;font-size:25px}
+.mobileNav{display:none;position:fixed;inset:78px 0 auto 0;background:#fff;border-bottom:1px solid var(--line);padding:16px 20px 22px;box-shadow:var(--shadow);z-index:29}
+.mobileNav.open{display:grid;gap:8px}.mobileNav a{padding:13px 10px;text-decoration:none;font-weight:800;border-bottom:1px solid var(--soft)}
+.hero{background:radial-gradient(circle at 90% 10%,#fff4ca 0,transparent 35%),linear-gradient(135deg,#edf8f3,#fffdf6);padding:76px 0 66px;border-bottom:1px solid #f0f4f2}.heroGrid{display:grid;grid-template-columns:1.2fr .8fr;gap:42px;align-items:center}
+.hero h1{font-size:clamp(40px,7vw,72px);line-height:1.1;margin:10px 0 20px;letter-spacing:-.035em}.hero h1 span{color:var(--green)}.lead{font-size:20px;color:var(--muted);max-width:760px}
+.heroPanel{border:1px solid var(--line);background:rgba(255,255,255,.82);border-radius:28px;padding:28px;box-shadow:var(--shadow)}.heroPanel .bigEmoji{font-size:70px}.heroPanel h3{font-size:25px;margin:8px 0}.heroPanel p{color:var(--muted);margin:0}
+.btns{display:flex;gap:12px;flex-wrap:wrap;margin:28px 0}.btn{display:inline-block;padding:14px 22px;border-radius:14px;background:var(--green);color:#fff;text-decoration:none;font-weight:850;border:1px solid var(--green);cursor:pointer}.btn:hover{filter:brightness(.97)}.btn.sub{background:#fff;color:var(--ink);border-color:var(--line)}
 .chips{display:flex;gap:10px;flex-wrap:wrap}.chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 14px}
 .section{padding:64px 0}.section.soft{background:var(--soft)}.eyebrow{color:var(--green);font-weight:900;letter-spacing:.16em}.section h2{font-size:36px;margin:6px 0 26px}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}.card{border:1px solid var(--line);border-radius:24px;overflow:hidden;background:#fff}.cover{height:210px;background:linear-gradient(135deg,#e7f7f1,#fff2cf);display:flex;align-items:center;justify-content:center;font-size:72px}.cover img{width:100%;height:100%;object-fit:cover}
-.pad{padding:24px}.badges{display:flex;gap:8px;flex-wrap:wrap}.badge{font-size:13px;font-weight:800;background:var(--soft);color:var(--green2);padding:5px 10px;border-radius:999px}.card h3{font-size:23px;line-height:1.45;margin:12px 0}.meta{font-size:14px;color:var(--muted)}
-.areaGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.area{background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;text-align:center;text-decoration:none}.area .e{font-size:44px}
-.article{max-width:820px;margin:auto;padding:48px 20px}.article h1{font-size:clamp(34px,6vw,56px);line-height:1.25}.article .heroimg{border-radius:24px;overflow:hidden;background:linear-gradient(135deg,#e7f7f1,#fff2cf);min-height:320px;display:flex;align-items:center;justify-content:center;font-size:92px}.article .heroimg img{width:100%;max-height:520px;object-fit:cover}.articleBody{font-size:18px}.articleBody h2{margin-top:38px}.affiliate{margin:36px 0;padding:24px;border:1px solid var(--line);border-radius:18px;background:#fbfffd}.affiliate a{display:inline-block;margin:6px 8px 6px 0;padding:10px 14px;border-radius:10px;background:var(--green);color:#fff;text-decoration:none;font-weight:700}
-.footer{background:#16352c;color:#fff;padding:44px 0;margin-top:60px}
-.filterbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}.filterbar a{padding:8px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none}
-.login{max-width:520px;margin:70px auto;padding:28px;border:1px solid var(--line);border-radius:22px}.input,textarea,select{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff}.field{margin:14px 0}.admin{max-width:1000px;margin:40px auto;padding:0 20px}.panel{border:1px solid var(--line);border-radius:20px;padding:24px;margin:20px 0}.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.small{font-size:13px;color:var(--muted)}.status{padding:10px 14px;border-radius:10px;background:var(--soft);margin:12px 0}
-@media(max-width:800px){.nav{display:none}.grid{grid-template-columns:1fr}.areaGrid{grid-template-columns:repeat(2,1fr)}.hero{padding:44px 0}.section{padding:46px 0}.row{grid-template-columns:1fr}}
+.sectionHead{display:flex;align-items:end;justify-content:space-between;gap:20px}.more{color:var(--green);font-weight:850;text-decoration:none}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}.card{border:1px solid var(--line);border-radius:24px;overflow:hidden;background:#fff;box-shadow:0 8px 24px rgba(20,67,53,.04);transition:.2s transform,.2s box-shadow}.card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.cover{aspect-ratio:16/10;background:linear-gradient(135deg,#e7f7f1,#fff2cf);display:flex;align-items:center;justify-content:center;font-size:72px;overflow:hidden}.cover img{width:100%;height:100%;object-fit:cover}
+.pad{padding:24px}.badges{display:flex;gap:8px;flex-wrap:wrap}.badge{font-size:13px;font-weight:850;background:var(--soft);color:var(--green2);padding:5px 10px;border-radius:999px}.card h3{font-size:23px;line-height:1.45;margin:12px 0}.meta{font-size:14px;color:var(--muted)}
+.areaGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.area{background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;text-align:center;text-decoration:none;transition:.2s transform}.area:hover{transform:translateY(-2px)}.area .e{font-size:44px}
+.article{max-width:820px;margin:auto;padding:48px 20px}.article h1{font-size:clamp(34px,6vw,56px);line-height:1.25}.article .heroimg{border-radius:24px;overflow:hidden;background:linear-gradient(135deg,#e7f7f1,#fff2cf);min-height:320px;display:flex;align-items:center;justify-content:center;font-size:92px}.article .heroimg img{width:100%;max-height:520px;object-fit:cover}.articleBody{font-size:18px}.articleBody h2{margin-top:38px}.affiliate{margin:36px 0;padding:24px;border:1px solid var(--line);border-radius:18px;background:#fbfffd}.affiliate a{display:inline-block;margin:6px 8px 6px 0;padding:10px 14px;border-radius:10px;background:var(--green);color:#fff;text-decoration:none;font-weight:750}
+.footer{background:#16352c;color:#fff;padding:44px 0;margin-top:60px}.footer a{color:#fff}
+.filterbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}.filterbar a{padding:8px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none}.searchbar{display:flex;gap:10px;margin:0 0 22px}.searchbar input{flex:1}
+.login{max-width:520px;margin:70px auto;padding:28px;border:1px solid var(--line);border-radius:22px}.input,textarea,select{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff}.field{margin:14px 0}.admin{max-width:1000px;margin:40px auto;padding:0 20px}.panel{border:1px solid var(--line);border-radius:20px;padding:24px;margin:20px 0}.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.small{font-size:13px;color:var(--muted)}.status{padding:10px 14px;border-radius:10px;background:var(--soft);margin:12px 0}.preview{margin-top:10px;border:1px dashed var(--line);border-radius:14px;min-height:90px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted)}.preview img{width:100%;max-height:260px;object-fit:cover}
+.notice{padding:14px 16px;border-radius:12px;background:#fff8d8;border:1px solid #f2e29d}
+@media(max-width:800px){.nav{display:none}.menuBtn{display:block}.grid{grid-template-columns:1fr}.areaGrid{grid-template-columns:repeat(2,1fr)}.hero{padding:48px 0}.heroGrid{grid-template-columns:1fr}.heroPanel{display:none}.section{padding:46px 0}.row{grid-template-columns:1fr}.sectionHead{align-items:start}.brand{font-size:20px}.searchbar{display:grid;grid-template-columns:1fr auto}}
 </style>
 </head><body>
 <header class="header"><div class="wrap headerin">
 <a class="brand" href="/">👨‍👩‍👧‍👦 九州ファミリー旅ナビ</a>
 <nav class="nav"><a href="/">ホーム</a><a href="/articles.html">記事一覧</a><a href="/#areas">エリア</a><a href="/admin.html">管理</a></nav>
+<button class="menuBtn" id="menuBtn" aria-label="メニュー" aria-expanded="false">☰</button>
 </div></header>
+<nav class="mobileNav" id="mobileNav"><a href="/">ホーム</a><a href="/articles.html">記事一覧</a><a href="/#areas">エリアから探す</a><a href="/admin.html">管理画面</a></nav>
 ${body}
-<footer class="footer"><div class="wrap"><b>九州ファミリー旅ナビ</b><div>子連れ九州旅行の情報メディア</div><div style="margin-top:18px">© 2026 九州ファミリー旅ナビ</div></div></footer>
+<footer class="footer"><div class="wrap"><b>九州ファミリー旅ナビ</b><div>子連れ九州旅行の情報メディア</div><div style="margin-top:18px"><a href="/articles.html">記事一覧</a> ・ <a href="/admin.html">管理画面</a></div><div style="margin-top:18px">© 2026 九州ファミリー旅ナビ</div></div></footer>
+<script>
+(function(){
+  var b=document.getElementById("menuBtn"),n=document.getElementById("mobileNav");
+  if(b&&n){b.addEventListener("click",function(){var open=n.classList.toggle("open");b.setAttribute("aria-expanded",String(open));b.textContent=open?"✕":"☰";});}
+})();
+</script>
 </body></html>`;
 }
 
@@ -180,38 +212,44 @@ function articleCard(a) {
   </article>`;
 }
 
-async function homePage(env) {
+async function homePage(env, url) {
   const featured = await listArticles(env.DB, { featured: true, published: true });
   const cards = featured.slice(0,6).map(articleCard).join("");
   const areas = Object.keys(AREA_LABELS).map(k =>
     `<a class="area" href="/articles.html?area=${encodeURIComponent(k)}"><div class="e">${AREA_EMOJI[k]}</div><b>${AREA_LABELS[k]}</b><div class="small">子連れスポットを探す</div></a>`
   ).join("");
-  const body = `<section class="hero"><div class="wrap">
+  const body = `<section class="hero"><div class="wrap heroGrid"><div>
     <div class="eyebrow">九州の家族旅行を、もっとラクに。もっと楽しく。</div>
     <h1>子どもと一緒に<br><span>九州を遊びつくそう。</span></h1>
     <p class="lead">ホテル・観光スポット・食べ歩き・雨の日プランまで。パパママ目線で、子連れ旅行に本当に役立つ情報をまとめます。</p>
     <div class="btns"><a class="btn" href="/articles.html">おすすめ記事を見る</a><a class="btn sub" href="#areas">エリアから探す</a></div>
     <div class="chips"><span class="chip">🍼 赤ちゃん連れ</span><span class="chip">🛏️ 子連れホテル</span><span class="chip">☔ 雨の日OK</span></div>
-  </div></section>
-  <section class="section"><div class="wrap"><div class="eyebrow">FEATURED</div><h2>おすすめ記事</h2><div class="grid">${cards || "<p>公開記事はまだありません。</p>"}</div></div></section>
+  </div><aside class="heroPanel"><div class="bigEmoji">🗺️</div><h3>九州7県を家族目線で</h3><p>年齢・雨の日・ホテル・モデルコースから、家族に合う旅先を探せます。</p></aside></div></section>
+  <section class="section"><div class="wrap"><div class="sectionHead"><div><div class="eyebrow">FEATURED</div><h2>おすすめ記事</h2></div><a class="more" href="/articles.html">すべて見る →</a></div><div class="grid">${cards || "<p>公開記事はまだありません。</p>"}</div></div></section>
   <section class="section soft" id="areas"><div class="wrap"><div class="eyebrow">AREA</div><h2>エリアから探す</h2><div class="areaGrid">${areas}</div></div></section>`;
-  return html(layout("九州ファミリー旅ナビ", body,
-    '<meta name="description" content="九州の子連れ旅行に役立つホテル、観光、グルメ、モデルコース情報。">'));
+  const canonical = url.origin + "/";
+  const head = `<meta name="description" content="九州の子連れ旅行に役立つホテル、観光、グルメ、モデルコース情報。">
+<link rel="canonical" href="${esc(canonical)}"><meta property="og:type" content="website"><meta property="og:title" content="九州ファミリー旅ナビ"><meta property="og:description" content="九州の子連れ旅行に役立つホテル、観光、グルメ、モデルコース情報。"><meta property="og:url" content="${esc(canonical)}"><meta name="twitter:card" content="summary_large_image">`;
+  return html(layout("九州ファミリー旅ナビ", body, head));
 }
 
 async function articlesPage(env, url) {
   const area = url.searchParams.get("area") || "";
   const category = url.searchParams.get("category") || "";
-  const rows = await listArticles(env.DB, { area: area || undefined, category: category || undefined, published: true });
+  const q = url.searchParams.get("q") || "";
+  const rows = await listArticles(env.DB, { area: area || undefined, category: category || undefined, q: q || undefined, published: true });
   const areaFilters = ['<a href="/articles.html">すべて</a>'].concat(Object.keys(AREA_LABELS).map(k =>
     `<a href="/articles.html?area=${k}">${AREA_LABELS[k]}</a>`
   )).join("");
   const body = `<main class="section"><div class="wrap"><div class="eyebrow">ARTICLES</div><h2>記事一覧</h2>
+  <form class="searchbar" method="get" action="/articles.html"><input class="input" type="search" name="q" value="${esc(q)}" placeholder="例：別府、雨の日、赤ちゃん"><button class="btn" type="submit">検索</button></form>
   <div class="filterbar">${areaFilters}</div>
+  ${q ? `<p class="small">「${esc(q)}」の検索結果：${rows.length}件</p>` : ""}
   <div class="grid">${rows.map(articleCard).join("") || "<p>該当する記事がありません。</p>"}</div>
   </div></main>`;
+  const canonical = url.origin + "/articles.html";
   return html(layout("記事一覧｜九州ファミリー旅ナビ", body,
-    '<meta name="description" content="九州ファミリー旅ナビの記事一覧。子連れホテル、観光、グルメ、モデルコースを紹介。">'));
+    `<meta name="description" content="九州ファミリー旅ナビの記事一覧。子連れホテル、観光、グルメ、モデルコースを紹介。"><link rel="canonical" href="${esc(canonical)}"><meta name="robots" content="index,follow">`));
 }
 
 async function articlePage(env, url) {
@@ -242,7 +280,16 @@ async function articlePage(env, url) {
   </main>`;
   const desc = a.seo.metaDescription || a.excerpt || a.title;
   const keywords = a.seo.keywords || a.tags.join(",");
-  const head = `<meta name="description" content="${esc(desc)}"><meta name="keywords" content="${esc(keywords)}"><meta property="og:title" content="${esc(a.title)}"><meta property="og:description" content="${esc(desc)}">`;
+  const canonical = url.origin + "/article.html?id=" + encodeURIComponent(a.id);
+  const image = a.coverImage || "";
+  const schema = {
+    "@context":"https://schema.org","@type":"Article","headline":a.title,"description":desc,
+    "datePublished":a.date || undefined,"dateModified":a.updatedAt || a.date || undefined,
+    "mainEntityOfPage":canonical,"publisher":{"@type":"Organization","name":"九州ファミリー旅ナビ"}
+  };
+  if (image) schema.image = [image];
+  const head = `<meta name="description" content="${esc(desc)}"><meta name="keywords" content="${esc(keywords)}">
+<link rel="canonical" href="${esc(canonical)}"><meta property="og:type" content="article"><meta property="og:title" content="${esc(a.title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(canonical)}">${image ? `<meta property="og:image" content="${esc(image)}">` : ""}<meta name="twitter:card" content="summary_large_image"><script type="application/ld+json">${JSON.stringify(schema).replace(/</g,"\\u003c")}</script>`;
   return html(layout(a.title + "｜九州ファミリー旅ナビ", body, head));
 }
 
@@ -261,6 +308,7 @@ async function handleApi(request, env) {
       id: url.searchParams.get("id") || undefined,
       area: url.searchParams.get("area") || undefined,
       category: url.searchParams.get("category") || undefined,
+      q: url.searchParams.get("q") || undefined,
       featured: url.searchParams.get("featured") === "1",
       published: url.searchParams.get("published") === "1" ? true : false
     });
@@ -325,8 +373,9 @@ function adminPage() {
         <div class="field"><label>エリア</label><select id="area">${Object.keys(AREA_LABELS).map(k=>`<option value="${k}">${AREA_LABELS[k]}</option>`).join("")}</select></div>
         <div class="field"><label>カテゴリ</label><select id="category">${Object.keys(CATEGORY_LABELS).map(k=>`<option value="${k}">${CATEGORY_LABELS[k]}</option>`).join("")}</select></div>
       </div>
-      <div class="field"><label>画像URL</label><input id="coverImage" class="input" placeholder="https://..."></div>
+      <div class="field"><label>画像URL</label><input id="coverImage" class="input" placeholder="https://..."><div id="imagePreview" class="preview">画像URLを入れるとプレビューします</div></div>
       <div class="field"><label>画像alt</label><input id="coverAlt" class="input"></div>
+      <div class="field"><label>公開日</label><input id="date" class="input" type="date"><div class="small">未来の日付＋「公開」で、公開予約として扱います。</div></div>
       <div class="field"><label>要約</label><textarea id="excerpt" rows="3"></textarea></div>
       <div class="field"><label>本文（## 見出し / - 箇条書き 対応）</label><textarea id="content" rows="10"></textarea></div>
       <div class="row">
@@ -375,14 +424,15 @@ function adminPage() {
     var d = await r.json();
     var list = d.articles || [];
     $("articleList").innerHTML = list.length ? list.map(function(a){
-      return '<div style="padding:14px 0;border-bottom:1px solid #d8e6df"><b>'+a.title+'</b><div class="small">'+a.area+' / '+a.category+' / '+(a.published?'公開':'下書き')+'</div><button class="btn sub editBtn" data-id="'+a.id+'">編集</button> <button class="btn sub delBtn" data-id="'+a.id+'">削除</button></div>';
+      var today=new Date().toISOString().slice(0,10); var state=!a.published?'下書き':(a.date&&a.date>today?'公開予約 '+a.date:'公開');
+      return '<div style="padding:14px 0;border-bottom:1px solid #d8e6df"><b>'+a.title+'</b><div class="small">'+a.area+' / '+a.category+' / '+state+'</div><button class="btn sub editBtn" data-id="'+a.id+'">編集</button> <button class="btn sub delBtn" data-id="'+a.id+'">削除</button></div>';
     }).join("") : "記事がありません。";
     Array.from(document.querySelectorAll(".editBtn")).forEach(function(b){ b.onclick=function(){ editArticle(b.dataset.id); }; });
     Array.from(document.querySelectorAll(".delBtn")).forEach(function(b){ b.onclick=function(){ deleteArticle(b.dataset.id); }; });
   }
   async function editArticle(id){
     var r=await fetch("/api/articles?id="+encodeURIComponent(id)); var d=await r.json(); var a=(d.articles||[])[0]; if(!a)return;
-    $("id").value=a.id||""; $("title").value=a.title||""; $("icon").value=a.icon||"🧳"; $("area").value=a.area||"fukuoka"; $("category").value=a.category||"spot";
+    $("id").value=a.id||""; $("title").value=a.title||""; $("icon").value=a.icon||"🧳"; $("area").value=a.area||"fukuoka"; $("category").value=a.category||"spot"; $("date").value=a.date||"";
     $("coverImage").value=a.coverImage||""; $("coverAlt").value=a.coverAlt||""; $("excerpt").value=a.excerpt||""; $("content").value=a.content||"";
     $("tags").value=(a.tags||[]).join(", "); $("ageGroups").value=(a.ageGroups||[]).join(", "); $("practical").value=(a.practical||[]).join(", ");
     $("rakuten").value=(a.affiliate&&a.affiliate.rakuten)||""; $("jalan").value=(a.affiliate&&a.affiliate.jalan)||""; $("yahoo").value=(a.affiliate&&a.affiliate.yahoo)||"";
@@ -395,7 +445,7 @@ function adminPage() {
       tags:csv($("tags").value),ageGroups:csv($("ageGroups").value),practical:csv($("practical").value),
       affiliate:{rakuten:$("rakuten").value,jalan:$("jalan").value,yahoo:$("yahoo").value},
       seo:{metaDescription:$("metaDescription").value,keywords:$("keywords").value},
-      published:$("published").checked,featured:$("featured").checked};
+      date:$("date").value||undefined,published:$("published").checked,featured:$("featured").checked};
   }
   $("saveBtn").onclick=async function(){
     var p=payload(); var method=p.id?"PUT":"POST"; $("saveStatus").textContent="保存中...";
@@ -405,16 +455,38 @@ function adminPage() {
     $("saveStatus").textContent="保存しました。公開サイトへ即時反映されます。"; clearForm(); loadArticles();
   };
   $("newBtn").onclick=clearForm;
-  function clearForm(){ ["id","title","coverImage","coverAlt","excerpt","content","tags","ageGroups","practical","rakuten","jalan","yahoo","metaDescription","keywords"].forEach(function(x){$(x).value="";}); $("icon").value="🧳"; $("published").checked=true; $("featured").checked=false; }
+  function clearForm(){ ["id","title","coverImage","coverAlt","excerpt","content","tags","ageGroups","practical","rakuten","jalan","yahoo","metaDescription","keywords"].forEach(function(x){$(x).value="";}); $("date").value=new Date().toISOString().slice(0,10); $("icon").value="🧳"; $("published").checked=true; $("featured").checked=false; updatePreview(); }
+  function updatePreview(){var u=$("coverImage").value.trim();$("imagePreview").innerHTML=u?'<img src="'+u.replace(/"/g,"&quot;")+'" alt="プレビュー">':'画像URLを入れるとプレビューします';}
+  $("coverImage").addEventListener("input",updatePreview);
   async function deleteArticle(id){
     if(!confirm("この記事を削除しますか？")) return;
     var r=await fetch("/api/articles",{method:"DELETE",headers:headers(),body:JSON.stringify({id:id})});
     if(r.ok) loadArticles(); else alert("削除に失敗しました");
   }
+  if(!$("date").value) $("date").value=new Date().toISOString().slice(0,10);
   boot();
 })();
 </script>`;
   return html(layout("管理画面｜九州ファミリー旅ナビ", body, '<meta name="robots" content="noindex,nofollow">'));
+}
+
+
+async function sitemapPage(env, url) {
+  const rows = await listArticles(env.DB, { published: true });
+  const urls = [
+    `<url><loc>${esc(url.origin + "/")}</loc></url>`,
+    `<url><loc>${esc(url.origin + "/articles.html")}</loc></url>`,
+    ...rows.map(a => `<url><loc>${esc(url.origin + "/article.html?id=" + encodeURIComponent(a.id))}</loc><lastmod>${esc(a.updatedAt || a.date || todayJst())}</lastmod></url>`)
+  ];
+  return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>`, {
+    headers: { "content-type":"application/xml; charset=utf-8" }
+  });
+}
+
+function robotsPage(url) {
+  return new Response(`User-agent: *\\nAllow: /\\nDisallow: /admin.html\\nSitemap: ${url.origin}/sitemap.xml\\n`, {
+    headers: { "content-type":"text/plain; charset=utf-8" }
+  });
 }
 
 export default {
@@ -427,8 +499,10 @@ export default {
         const rows = await listArticles(env.DB, { featured: true, published: true });
         return json({ ok: true, storage: "d1", featuredCount: rows.length, ids: rows.map(x => x.id) });
       }
-      if (url.pathname === "/" || url.pathname === "/index.html") return await homePage(env);
+      if (url.pathname === "/" || url.pathname === "/index.html") return await homePage(env, url);
       if (url.pathname === "/articles.html") return await articlesPage(env, url);
+      if (url.pathname === "/sitemap.xml") return await sitemapPage(env, url);
+      if (url.pathname === "/robots.txt") return robotsPage(url);
       if (url.pathname === "/article.html") return await articlePage(env, url);
       if (url.pathname === "/admin.html") return adminPage();
       return html(layout("ページが見つかりません", '<main class="article"><h1>404</h1><p>ページが見つかりません。</p></main>'), { status:404 });
