@@ -1,10 +1,93 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>管理画面｜九州ファミリー旅ナビ</title><link rel="stylesheet" href="styles.css"></head>
-<body data-page="admin" class="admin-body">
-<header class="admin-header"><div class="container"><a class="brand" href="index.html"><span class="brand-mark">👨‍👩‍👧‍👦</span><span>九州ファミリー旅ナビ</span></a><a class="btn btn-small btn-ghost" href="index.html">公開サイトを見る</a></div></header>
-<main class="admin-main"><div class="container admin-grid"><aside class="admin-sidebar"><strong>管理メニュー</strong><button class="admin-tab active" data-tab="dashboard">📊 ダッシュボード</button><button class="admin-tab" data-tab="editor">✏️ 記事を追加</button><button class="admin-tab" data-tab="manage">🗂️ 記事管理</button><p class="admin-note">※ この初期版はブラウザのLocalStorageに保存します。Cloudflare D1連携へ拡張可能です。</p></aside>
-<section class="admin-content">
-<div class="admin-panel active" id="tab-dashboard"><div class="section-head"><div><p class="eyebrow">ADMIN</p><h1>ダッシュボード</h1></div></div><div class="stat-grid"><div class="stat-card"><span>公開記事</span><strong id="statPublished">0</strong></div><div class="stat-card"><span>下書き</span><strong id="statDraft">0</strong></div><div class="stat-card"><span>登録記事</span><strong id="statTotal">0</strong></div></div><div class="admin-box"><h2>最近の記事</h2><div id="recentArticles"></div></div></div>
-<div class="admin-panel" id="tab-editor"><div class="section-head"><div><p class="eyebrow">EDITOR</p><h1 id="editorTitle">新規記事作成</h1></div></div><form id="articleForm" class="admin-form"><input type="hidden" id="articleId"><label>タイトル<input id="title" required placeholder="例：別府で子連れにおすすめのホテル5選"></label><div class="form-row"><label>エリア<select id="area" required><option value="oita">大分</option><option value="fukuoka">福岡</option><option value="saga">佐賀</option><option value="nagasaki">長崎</option><option value="kumamoto">熊本</option><option value="miyazaki">宮崎</option><option value="kagoshima">鹿児島</option></select></label><label>カテゴリ<select id="category" required><option value="hotel">ホテル</option><option value="spot">観光</option><option value="gourmet">グルメ</option><option value="plan">モデルコース</option></select></label></div><label>アイキャッチ絵文字<input id="emoji" value="🏨" maxlength="4"></label><label>要約<textarea id="excerpt" rows="3" required></textarea></label><label>本文<textarea id="content" rows="12" required placeholder="見出しは ## 見出し の形式で入力できます。"></textarea></label><label class="check"><input id="published" type="checkbox" checked> 公開する</label><div class="form-actions"><button class="btn btn-primary" type="submit">保存する</button><button class="btn btn-ghost" type="button" id="resetForm">入力をリセット</button></div><p id="saveMessage" class="save-message"></p></form></div>
-<div class="admin-panel" id="tab-manage"><div class="section-head"><div><p class="eyebrow">MANAGE</p><h1>記事管理</h1></div></div><div class="admin-box"><div id="manageArticles"></div></div></div>
-</section></div></main><script src="app.js"></script></body></html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="九州ファミリー旅ナビの管理画面です。Cloudflare D1連携対応。">
+  <title>管理画面｜九州ファミリー旅ナビ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-body">
+<header class="admin-header"><div class="container"><a class="brand" href="index.html"><span class="brand-mark">👨‍👩‍👧‍👦</span><span>九州ファミリー旅ナビ</span></a><div style="display:flex;gap:10px;flex-wrap:wrap"><span class="admin-status" id="adminApiStatus">接続確認中…</span><button id="logoutButton" class="btn btn-secondary btn-sm" type="button">ログアウト</button><a class="btn btn-secondary btn-sm" href="index.html">公開サイトを見る</a></div></div></header>
+
+<section class="login-wrap" id="loginSection">
+  <div class="container">
+    <div class="login-card">
+      <h2>管理画面ログイン</h2>
+      <p>D1に接続して記事を共通管理する場合は、Cloudflare Pagesの環境変数 <strong>ADMIN_PASSWORD</strong> と同じパスワードを入力してください。</p>
+      <div style="height:14px"></div>
+      <input id="adminPassword" type="password" placeholder="管理パスワード">
+      <div class="login-actions">
+        <button class="btn btn-primary" id="loginButton" type="button">ログインして管理する</button>
+        <button class="btn btn-secondary" id="skipLocalButton" type="button">ローカルモードで試す</button>
+      </div>
+      <p class="inline-help">※ ローカルモードでは、この端末のブラウザにだけ保存されます。</p>
+    </div>
+  </div>
+</section>
+
+<main class="admin-shell hidden" id="adminSection">
+  <div class="container admin-grid">
+    <aside class="admin-sidebar">
+      <h3>管理メニュー</h3>
+      <button class="admin-tab active" data-tab="dashboard">📊 ダッシュボード</button>
+      <button class="admin-tab" data-tab="editor">✏️ 記事を追加 / 編集</button>
+      <button class="admin-tab" data-tab="manage">🗂️ 記事管理</button>
+      <div class="admin-note">Cloudflare Pages + D1対応版です。ログイン中は複数端末で記事を共通管理できます。</div>
+    </aside>
+
+    <section>
+      <div class="admin-panel active" id="tab-dashboard">
+        <div class="section-head"><div><p class="section-label">Admin</p><h1>ダッシュボード</h1><p>接続状況と記事データの状態を一目で確認できます。</p></div></div>
+        <div class="stat-grid">
+          <div class="stat-card"><span>公開記事</span><strong id="statPublished">0</strong></div>
+          <div class="stat-card"><span>下書き</span><strong id="statDraft">0</strong></div>
+          <div class="stat-card"><span>注目記事</span><strong id="statFeatured">0</strong></div>
+          <div class="stat-card"><span>登録記事</span><strong id="statTotal">0</strong></div>
+        </div>
+        <div class="admin-box"><h3>接続・運用状況</h3><div class="health-grid"><div><strong>保存先</strong><p class="muted" id="runtimeStatus">確認中…</p></div><div><strong>認証状態</strong><p class="muted" id="authStatus">確認中…</p></div></div></div>
+        <div class="admin-box"><div class="seed-box"><div><h3>初期記事のD1取り込み</h3><p class="muted">articles.json に入っている初期記事を、D1データベースへ一括投入できます。</p></div><button class="btn btn-primary btn-sm" type="button" id="seedButton">初期記事をD1へ取り込む</button></div><p id="seedMessage" class="save-message"></p></div>
+        <div class="admin-box"><h3>最近の記事</h3><div id="recentArticles"></div></div>
+      </div>
+
+      <div class="admin-panel" id="tab-editor">
+        <div class="section-head"><div><p class="section-label">Editor</p><h1 id="editorHeading">新規記事作成</h1><p>画像・タグ・実用情報・アフィリエイト・SEOまでまとめて登録できます。</p></div></div>
+        <div class="admin-box">
+          <form id="articleForm">
+            <input type="hidden" id="articleId">
+            <div class="editor-grid">
+              <label class="full"><span>タイトル</span><input id="title" required placeholder="例：別府で子連れにおすすめのホテル5選"></label>
+              <label><span>エリア</span><select id="area"><option value="fukuoka">福岡</option><option value="saga">佐賀</option><option value="nagasaki">長崎</option><option value="kumamoto">熊本</option><option value="oita">大分</option><option value="miyazaki">宮崎</option><option value="kagoshima">鹿児島</option></select></label>
+              <label><span>カテゴリ</span><select id="category"><option value="hotel">ホテル</option><option value="spot">観光</option><option value="gourmet">グルメ</option><option value="plan">モデルコース</option></select></label>
+              <label><span>アイコン絵文字</span><input id="icon" value="🧳"></label>
+              <label><span>カバー画像URL</span><input id="coverImage" type="url" placeholder="https://..."></label>
+              <label class="full"><span>カバー画像の説明文（alt）</span><input id="coverAlt" placeholder="画像の説明"></label>
+              <label class="full"><span>要約</span><textarea id="excerpt" rows="3" required></textarea></label>
+              <label class="full"><span>本文（## 見出し / ### 小見出し / - 箇条書き対応）</span><textarea id="content" rows="12" required></textarea></label>
+              <label class="full"><span>タグ（カンマ区切り）</span><input id="tags" placeholder="赤ちゃん連れ, 雨の日OK, 温泉"></label>
+              <label class="full"><span>対象年齢（カンマ区切り）</span><input id="ageGroups" placeholder="0-2歳, 3-6歳, 7歳以上"></label>
+              <div class="full"><span style="display:block;font-weight:800;margin-bottom:8px">実用情報タグ</span><div class="check-row"><label class="check-box"><input type="checkbox" name="practical" value="駐車場あり"> 駐車場あり</label><label class="check-box"><input type="checkbox" name="practical" value="授乳室あり"> 授乳室あり</label><label class="check-box"><input type="checkbox" name="practical" value="ベビーカーOK"> ベビーカーOK</label><label class="check-box"><input type="checkbox" name="practical" value="キッズメニュー"> キッズメニュー</label><label class="check-box"><input type="checkbox" name="practical" value="屋内"> 屋内</label></div></div>
+              <label><span>楽天トラベルURL</span><input id="affiliateRakuten" type="url" placeholder="https://travel.rakuten.co.jp/"></label>
+              <label><span>じゃらんURL</span><input id="affiliateJalan" type="url" placeholder="https://www.jalan.net/"></label>
+              <label class="full"><span>Yahoo!トラベルURL</span><input id="affiliateYahoo" type="url" placeholder="https://travel.yahoo.co.jp/"></label>
+              <label class="full"><span>SEO用メタ説明</span><textarea id="metaDescription" rows="3"></textarea></label>
+              <label class="full"><span>SEOキーワード</span><input id="keywords" placeholder="例：別府, 子連れ, ホテル"></label>
+              <div class="full check-row"><label class="check-box"><input id="featured" type="checkbox"> 注目記事にする</label><label class="check-box"><input id="published" type="checkbox" checked> 公開する</label></div>
+            </div>
+            <div class="form-actions"><button class="btn btn-primary" type="submit">保存する</button><button class="btn btn-secondary" type="button" id="resetForm">入力をリセット</button></div>
+            <p id="saveMessage" class="save-message"></p>
+          </form>
+        </div>
+      </div>
+
+      <div class="admin-panel" id="tab-manage">
+        <div class="section-head"><div><p class="section-label">Manage</p><h1>記事管理</h1><p>公開・下書き・注目記事をまとめて確認できます。</p></div></div>
+        <div class="admin-box"><div id="manageArticles"></div></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

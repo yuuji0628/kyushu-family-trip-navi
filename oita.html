@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="大分の子連れ旅行情報をまとめたページです。ホテル・観光・グルメ・モデルコースをチェックできます。">
+  <link rel="canonical" href="https://kyushu-family-trip-navi.pages.dev/oita.html">
+  <title>大分の子連れ旅行情報｜九州ファミリー旅ナビ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="area" data-area-page="oita">
+<header class="site-header"><div class="container header-inner"><a class="brand" href="index.html"><span class="brand-mark">👨‍👩‍👧‍👦</span><span>九州ファミリー旅ナビ</span></a><button class="menu-btn" aria-label="メニュー" aria-expanded="false">☰</button><nav class="main-nav"><a href="index.html">ホーム</a><a href="articles.html">記事一覧</a><a class="active" href="oita.html">大分</a><a href="admin.html">管理画面</a></nav></div></header>
+<main>
+  <section class="page-hero"><div class="container"><p class="section-label">Area Page</p><h1 id="areaPageTitle">大分の子連れ旅行情報</h1><p id="areaPageCopy">大分エリアのホテル・観光・グルメ・モデルコースを親目線でまとめています。</p></div></section>
+  <section class="section"><div class="container">
+    <div class="filters">
+      <input id="searchInput" type="search" placeholder="キーワード検索（例：温泉、ホテル、赤ちゃん）">
+      <select id="areaFilter"><option value="">すべてのエリア</option><option value="fukuoka">福岡</option><option value="saga">佐賀</option><option value="nagasaki">長崎</option><option value="kumamoto">熊本</option><option value="oita">大分</option><option value="miyazaki">宮崎</option><option value="kagoshima">鹿児島</option></select>
+      <select id="categoryFilter"><option value="">すべてのカテゴリ</option><option value="hotel">ホテル</option><option value="spot">観光</option><option value="gourmet">グルメ</option><option value="plan">モデルコース</option></select>
+      <select id="sortFilter"><option value="new">新しい順</option><option value="old">古い順</option><option value="updated">更新順</option></select>
+    </div>
+    <div class="count-line"><strong id="resultCount">0</strong> 件の記事</div>
+    <div class="card-grid" id="articleList"></div>
+    <div class="empty-state" id="emptyState" hidden>条件に合う記事がありません。</div>
+  </div></section>
+</main>
+<footer class="site-footer"><div class="container site-footer-grid"><div><strong>九州ファミリー旅ナビ</strong><p>子連れ九州旅行の情報メディア</p></div><div class="footer-links"><a href="articles.html">記事一覧</a><a href="admin.html">管理画面</a></div><small>© 2026 九州ファミリー旅ナビ</small></div></footer>
+<script src="app.js"></script>
+</body>
+</html>

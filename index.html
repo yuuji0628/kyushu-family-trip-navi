@@ -1,17 +1,18 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="九州の子連れ旅行に役立つホテル・観光・グルメ情報をまとめた九州ファミリー旅ナビ。" />
-  <title>九州ファミリー旅ナビ｜子連れで楽しむ九州旅行</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="九州の子連れ旅行に役立つホテル・観光・グルメ・モデルコース情報をまとめた九州ファミリー旅ナビ。">
+  <link rel="canonical" href="https://kyushu-family-trip-navi.pages.dev/">
+  <title>九州ファミリー旅ナビ｜子連れ九州旅行の情報メディア</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body data-page="home">
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="index.html"><span class="brand-mark">👨‍👩‍👧‍👦</span><span>九州ファミリー旅ナビ</span></a>
-      <button class="menu-btn" aria-label="メニューを開く" aria-expanded="false">☰</button>
+      <button class="menu-btn" aria-label="メニュー" aria-expanded="false">☰</button>
       <nav class="main-nav">
         <a class="active" href="index.html">ホーム</a>
         <a href="articles.html">記事一覧</a>
@@ -25,59 +26,71 @@
     <section class="hero">
       <div class="container hero-grid">
         <div>
-          <p class="eyebrow">九州の家族旅行を、もっとラクに。もっと楽しく。</p>
+          <div class="hero-copy-top">九州の家族旅行を、もっとラクに。もっと楽しく。</div>
           <h1>子どもと一緒に<br><span>九州を遊びつくそう。</span></h1>
           <p class="hero-copy">ホテル・観光スポット・食べ歩き・雨の日プランまで。パパママ目線で、子連れ旅行に本当に役立つ情報をまとめます。</p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="articles.html">おすすめ記事を見る</a>
-            <a class="btn btn-ghost" href="#areas">エリアから探す</a>
+            <a class="btn btn-secondary" href="#areas">エリアから探す</a>
           </div>
           <div class="hero-badges">
-            <span>🍼 赤ちゃん連れ</span><span>🛏️ 子連れホテル</span><span>☔ 雨の日OK</span>
+            <span class="badge">🍼 赤ちゃん連れ</span>
+            <span class="badge">🛏️ 子連れホテル</span>
+            <span class="badge">☔ 雨の日OK</span>
+          </div>
+          <div class="quick-search">
+            <form id="quickSearchForm" class="quick-search-box">
+              <input id="quickKeyword" type="search" placeholder="キーワード検索（例：別府、赤ちゃん、温泉）">
+              <select id="quickArea">
+                <option value="">すべてのエリア</option>
+                <option value="fukuoka">福岡</option><option value="saga">佐賀</option><option value="nagasaki">長崎</option>
+                <option value="kumamoto">熊本</option><option value="oita">大分</option><option value="miyazaki">宮崎</option><option value="kagoshima">鹿児島</option>
+              </select>
+              <select id="quickCategory">
+                <option value="">すべてのカテゴリ</option>
+                <option value="hotel">ホテル</option><option value="spot">観光</option><option value="gourmet">グルメ</option><option value="plan">モデルコース</option>
+              </select>
+              <button class="btn btn-primary" type="submit">探す</button>
+            </form>
           </div>
         </div>
-        <div class="hero-card">
-          <div class="hero-visual">🏝️</div>
-          <div class="hero-card-body">
-            <strong>週末どこ行く？</strong>
-            <p>九州7県から、家族にぴったりの旅先を見つけよう。</p>
-          </div>
-        </div>
+        <div class="hero-side" id="heroFeature"></div>
       </div>
     </section>
 
     <section class="section" id="featured">
       <div class="container">
-        <div class="section-head"><div><p class="eyebrow">FEATURED</p><h2>おすすめ記事</h2></div><a href="articles.html">すべて見る →</a></div>
-        <div id="featuredArticles" class="card-grid"></div>
+        <div class="section-head">
+          <div><p class="section-label">Featured</p><h2>おすすめ記事</h2><p>まず読みたい、人気の切り口をピックアップ。</p></div>
+          <a class="section-link" href="articles.html">すべて見る →</a>
+        </div>
+        <div class="card-grid" id="featuredArticles"></div>
       </div>
     </section>
 
-    <section class="section section-soft" id="areas">
+    <section class="section soft" id="areas">
       <div class="container">
-        <div class="section-head"><div><p class="eyebrow">AREA</p><h2>エリアから探す</h2></div></div>
-        <div class="area-grid">
-          <a href="articles.html?area=fukuoka">🍜<strong>福岡</strong><span>街遊び・グルメ</span></a>
-          <a href="articles.html?area=saga">♨️<strong>佐賀</strong><span>温泉・自然</span></a>
-          <a href="articles.html?area=nagasaki">⛵<strong>長崎</strong><span>港町・テーマパーク</span></a>
-          <a href="articles.html?area=kumamoto">🐻<strong>熊本</strong><span>阿蘇・市街地</span></a>
-          <a href="articles.html?area=oita">♨️<strong>大分</strong><span>温泉・動物</span></a>
-          <a href="articles.html?area=miyazaki">🌴<strong>宮崎</strong><span>海・南国</span></a>
-          <a href="articles.html?area=kagoshima">🌋<strong>鹿児島</strong><span>桜島・離島</span></a>
-        </div>
+        <div class="section-head"><div><p class="section-label">Area</p><h2>エリアから探す</h2><p>九州7県から、家族にぴったりの旅先を見つけよう。</p></div></div>
+        <div class="area-grid" id="areaGrid"></div>
       </div>
     </section>
 
     <section class="section">
-      <div class="container feature-strip">
-        <div><span>01</span><h3>年齢別で探せる</h3><p>赤ちゃん、幼児、小学生など家族構成に合わせて探しやすく。</p></div>
-        <div><span>02</span><h3>親目線の実用情報</h3><p>ベビーカー、授乳室、食事、駐車場など気になるポイントを整理。</p></div>
-        <div><span>03</span><h3>旅行プランが作りやすい</h3><p>ホテル・観光・食事をまとめて、家族旅行の計画を時短。</p></div>
+      <div class="container feature-grid">
+        <div class="feature-box"><div class="feature-no">01</div><h3>年齢別で探せる</h3><p>赤ちゃん、幼児、小学生など家族構成に合わせて探しやすく。</p></div>
+        <div class="feature-box"><div class="feature-no">02</div><h3>親目線の実用情報</h3><p>授乳室、ベビーカー、食事、駐車場など気になるポイントを整理。</p></div>
+        <div class="feature-box"><div class="feature-no">03</div><h3>旅行プランが作りやすい</h3><p>ホテル・観光・食事をまとめて、家族旅行の計画を時短できます。</p></div>
       </div>
     </section>
   </main>
 
-  <footer class="site-footer"><div class="container"><div><strong>九州ファミリー旅ナビ</strong><p>子連れ九州旅行の情報メディア</p></div><div class="footer-links"><a href="articles.html">記事一覧</a><a href="admin.html">管理画面</a></div><small>© 2026 九州ファミリー旅ナビ</small></div></footer>
+  <footer class="site-footer">
+    <div class="container site-footer-grid">
+      <div><strong>九州ファミリー旅ナビ</strong><p>子連れ九州旅行の情報メディア</p></div>
+      <div class="footer-links"><a href="articles.html">記事一覧</a><a href="fukuoka.html">エリア別ページ</a><a href="admin.html">管理画面</a></div>
+      <small>© 2026 九州ファミリー旅ナビ</small>
+    </div>
+  </footer>
   <script src="app.js"></script>
 </body>
 </html>

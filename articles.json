@@ -1,8 +1,266 @@
 [
-  {"id":"beppu-family-hotel","title":"別府で子連れにおすすめのホテル5選｜温泉もプールも家族で満喫","area":"oita","category":"hotel","emoji":"♨️","excerpt":"赤ちゃん連れから小学生まで楽しめる、別府のファミリー向けホテルを厳選。温泉・食事・館内施設のポイントも紹介します。","content":"## 子連れ別府旅行はホテル選びが大事\n別府は温泉だけでなく、家族で楽しめる施設が充実しています。移動を少なくするなら、館内で遊べるホテルを選ぶのがおすすめです。\n\n## チェックしたいポイント\nベビーベッド、離乳食対応、家族風呂、プール、キッズスペースなどを確認しておくと安心です。\n\n## 旅程は詰め込みすぎない\n子どもの昼寝や休憩時間を確保し、1日2〜3スポット程度にすると無理なく楽しめます。","published":true,"date":"2026-09-14"},
-  {"id":"aso-family-drive","title":"阿蘇を子どもと楽しむ1日モデルコース｜動物・絶景・ご当地グルメ","area":"kumamoto","category":"plan","emoji":"🐻","excerpt":"阿蘇の定番スポットを、子どもの疲れにくさも考えて組んだファミリー向け1日コースです。","content":"## 朝は早めに阿蘇へ\n午前中は比較的動きやすいため、動物と触れ合えるスポットからスタート。\n\n## お昼はあか牛や郷土料理\n混雑を避けるなら11時台の入店がおすすめです。\n\n## 午後は景色を楽しむ\n草千里周辺でゆっくり過ごし、帰り道に道の駅へ立ち寄るプランが家族旅行に向いています。","published":true,"date":"2026-09-13"},
-  {"id":"fukuoka-rainy-day","title":"雨の日でも安心！福岡の子連れ室内スポット7選","area":"fukuoka","category":"spot","emoji":"☔","excerpt":"天気を気にせず遊べる福岡の室内スポットをまとめました。幼児から小学生まで楽しめる場所を中心に紹介。","content":"## 雨の日こそ室内スポットへ\n大型商業施設やミュージアム系施設は、食事や休憩の選択肢も多く子連れ旅行と好相性です。\n\n## 移動距離を短く\n地下鉄や駅直結施設を選ぶと、雨に濡れにくくベビーカーでも移動しやすくなります。","published":true,"date":"2026-09-12"},
-  {"id":"nagasaki-family-gourmet","title":"長崎で子どもと食べたいご当地グルメ｜家族で入りやすい店選びのコツ","area":"nagasaki","category":"gourmet","emoji":"🍽️","excerpt":"ちゃんぽん、トルコライス、カステラなど、長崎旅行で家族みんなが楽しみやすいグルメを紹介します。","content":"## ご当地グルメを家族で楽しむ\n子ども向けメニューや取り分けしやすい料理がある店を選ぶと安心です。\n\n## 混雑時間を避ける\n11時台や17時台に入店すると、待ち時間を減らしやすくなります。","published":true,"date":"2026-09-11"},
-  {"id":"miyazaki-baby-trip","title":"赤ちゃん連れ宮崎旅行の持ち物と移動のコツ","area":"miyazaki","category":"plan","emoji":"🌴","excerpt":"おむつ・ミルク・着替えなど、赤ちゃん連れ旅行で忘れたくない持ち物と宮崎での移動ポイントを整理。","content":"## まずは荷物を小分けに\nすぐ使うものとホテルで使うものを分けておくと移動中がラクです。\n\n## 車移動は休憩を多めに\n長時間のドライブは避け、道の駅やサービスエリアを活用しましょう。","published":true,"date":"2026-09-10"},
-  {"id":"kagoshima-family-spot","title":"鹿児島の家族旅行で外せない定番スポット6選","area":"kagoshima","category":"spot","emoji":"🌋","excerpt":"桜島や水族館など、初めての鹿児島家族旅行で押さえておきたい定番スポットを紹介。","content":"## 鹿児島市内は回りやすい\n市内中心部は主要観光地がまとまっていて、家族旅行でも予定を組みやすいのが魅力です。\n\n## 桜島へはフェリーも楽しい\n移動そのものが子どもの思い出になります。","published":true,"date":"2026-09-09"}
+  {
+    "id": "beppu-family-hotel",
+    "title": "別府で子連れにおすすめのホテル5選｜温泉もプールも家族で満喫",
+    "area": "oita",
+    "category": "hotel",
+    "icon": "♨️",
+    "coverImage": "https://picsum.photos/id/1018/1200/760",
+    "coverAlt": "リゾートホテルのプールと建物",
+    "excerpt": "赤ちゃん連れから小学生まで楽しめる、別府のファミリー向けホテルを厳選。温泉・食事・館内施設のポイントも紹介します。",
+    "content": "## 子連れ別府旅行はホテル選びが大事\n別府は温泉だけでなく、家族で楽しめる施設が充実しています。移動を少なくするなら、館内で遊べるホテルを選ぶのがおすすめです。\n\n## チェックしたいポイント\n- ベビーベッド対応\n- 離乳食やキッズメニュー\n- 家族風呂や大浴場\n- プールやキッズスペース\n\n## モデルの回り方\n午前はゆっくり出発してホテルに荷物を預け、午後は周辺観光へ。夕方は早めに温泉へ入ると、子どもの機嫌も保ちやすいです。",
+    "published": true,
+    "featured": true,
+    "date": "2026-09-14",
+    "updatedAt": "2026-09-14",
+    "tags": [
+      "赤ちゃん連れ",
+      "子連れホテル",
+      "温泉"
+    ],
+    "ageGroups": [
+      "0-2歳",
+      "3-6歳",
+      "7歳以上"
+    ],
+    "practical": [
+      "駐車場あり",
+      "授乳室あり",
+      "ベビーカーOK",
+      "キッズメニュー"
+    ],
+    "affiliate": {
+      "rakuten": "https://travel.rakuten.co.jp/",
+      "jalan": "https://www.jalan.net/",
+      "yahoo": "https://travel.yahoo.co.jp/"
+    },
+    "seo": {
+      "metaDescription": "別府で子連れ旅行におすすめのホテルを厳選。温泉、プール、食事、赤ちゃん向け設備など、家族旅行で役立つ情報をまとめました。",
+      "keywords": "別府,子連れ,ホテル,家族旅行,温泉"
+    }
+  },
+  {
+    "id": "aso-family-drive",
+    "title": "阿蘇を子どもと楽しむ1日モデルコース｜動物・絶景・ご当地グルメ",
+    "area": "kumamoto",
+    "category": "plan",
+    "icon": "🐻",
+    "coverImage": "https://picsum.photos/id/1040/1200/760",
+    "coverAlt": "草原と山並みの風景",
+    "excerpt": "阿蘇の定番スポットを、子どもの疲れにくさも考えて組んだファミリー向け1日コースです。",
+    "content": "## 朝は早めに阿蘇へ\n午前中は比較的動きやすいため、動物と触れ合えるスポットからスタートするのがおすすめです。\n\n## お昼はあか牛や郷土料理\n混雑を避けるなら11時台の入店がおすすめ。道の駅も休憩に便利です。\n\n## 午後は景色を楽しむ\n草千里周辺でゆっくり過ごし、帰り道にソフトクリームやおみやげを楽しむ流れが家族旅行と相性抜群です。",
+    "published": true,
+    "featured": true,
+    "date": "2026-09-13",
+    "updatedAt": "2026-09-13",
+    "tags": [
+      "モデルコース",
+      "動物",
+      "絶景"
+    ],
+    "ageGroups": [
+      "3-6歳",
+      "7歳以上"
+    ],
+    "practical": [
+      "駐車場あり",
+      "ベビーカーOK"
+    ],
+    "affiliate": {
+      "rakuten": "https://travel.rakuten.co.jp/",
+      "jalan": "https://www.jalan.net/",
+      "yahoo": "https://travel.yahoo.co.jp/"
+    },
+    "seo": {
+      "metaDescription": "阿蘇を子どもと一緒に楽しむ1日モデルコース。動物、絶景、ご当地グルメまで、無理なく回れる家族向けプランを紹介。",
+      "keywords": "阿蘇,子連れ,モデルコース,熊本,家族旅行"
+    }
+  },
+  {
+    "id": "fukuoka-rainy-day",
+    "title": "雨の日でも安心！福岡の子連れ室内スポット7選",
+    "area": "fukuoka",
+    "category": "spot",
+    "icon": "☔",
+    "coverImage": "https://picsum.photos/id/1015/1200/760",
+    "coverAlt": "屋内施設の明るい通路",
+    "excerpt": "天気を気にせず遊べる福岡の室内スポットをまとめました。幼児から小学生まで楽しめる場所を中心に紹介。",
+    "content": "## 雨の日こそ室内スポットへ\n大型商業施設やミュージアム系施設は、食事や休憩の選択肢も多く子連れ旅行と好相性です。\n\n## 移動距離を短く\n地下鉄や駅直結施設を選ぶと、雨に濡れにくくベビーカーでも移動しやすくなります。\n\n## あると安心な情報\n- 駐車場\n- 授乳室\n- ベビーカー可否\n- フードコートの有無",
+    "published": true,
+    "featured": true,
+    "date": "2026-09-12",
+    "updatedAt": "2026-09-12",
+    "tags": [
+      "雨の日OK",
+      "室内",
+      "福岡観光"
+    ],
+    "ageGroups": [
+      "0-2歳",
+      "3-6歳",
+      "7歳以上"
+    ],
+    "practical": [
+      "駐車場あり",
+      "授乳室あり",
+      "ベビーカーOK",
+      "屋内"
+    ],
+    "affiliate": {
+      "rakuten": "https://travel.rakuten.co.jp/",
+      "jalan": "https://www.jalan.net/",
+      "yahoo": "https://travel.yahoo.co.jp/"
+    },
+    "seo": {
+      "metaDescription": "雨の日でも安心して遊べる福岡の子連れ室内スポットを紹介。ベビーカーや授乳室、食事環境など親目線の情報も掲載。",
+      "keywords": "福岡,子連れ,雨の日,室内,観光"
+    }
+  },
+  {
+    "id": "nagasaki-family-gourmet",
+    "title": "長崎で子どもと食べたいご当地グルメ｜家族で入りやすい店選びのコツ",
+    "area": "nagasaki",
+    "category": "gourmet",
+    "icon": "🍽️",
+    "coverImage": "https://picsum.photos/id/1080/1200/760",
+    "coverAlt": "テーブルに並ぶ料理",
+    "excerpt": "ちゃんぽん、トルコライス、カステラなど、長崎旅行で家族みんなが楽しみやすいグルメを紹介します。",
+    "content": "## ご当地グルメを家族で楽しむ\n子ども向けメニューや取り分けしやすい料理がある店を選ぶと安心です。\n\n## 混雑時間を避ける\n11時台や17時台に入店すると、待ち時間を減らしやすくなります。\n\n## チェックしておきたい点\n- キッズチェア\n- アレルギー表示\n- 駐車場の有無",
+    "published": true,
+    "featured": false,
+    "date": "2026-09-11",
+    "updatedAt": "2026-09-11",
+    "tags": [
+      "グルメ",
+      "ご当地グルメ",
+      "ランチ"
+    ],
+    "ageGroups": [
+      "3-6歳",
+      "7歳以上"
+    ],
+    "practical": [
+      "駐車場あり",
+      "キッズメニュー"
+    ],
+    "affiliate": {
+      "rakuten": "https://travel.rakuten.co.jp/",
+      "jalan": "https://www.jalan.net/",
+      "yahoo": "https://travel.yahoo.co.jp/"
+    },
+    "seo": {
+      "metaDescription": "長崎で家族みんなが楽しめるご当地グルメを紹介。子ども連れで入りやすいお店選びのコツもまとめました。",
+      "keywords": "長崎,子連れ,グルメ,ちゃんぽん,家族旅行"
+    }
+  },
+  {
+    "id": "miyazaki-baby-trip",
+    "title": "赤ちゃん連れ宮崎旅行の持ち物と移動のコツ",
+    "area": "miyazaki",
+    "category": "plan",
+    "icon": "🌴",
+    "coverImage": "https://picsum.photos/id/1011/1200/760",
+    "coverAlt": "海辺の景色",
+    "excerpt": "おむつ・ミルク・着替えなど、赤ちゃん連れ旅行で忘れたくない持ち物と宮崎での移動ポイントを整理。",
+    "content": "## まずは荷物を小分けに\nすぐ使うものとホテルで使うものを分けておくと移動中がラクです。\n\n## 車移動は休憩を多めに\n長時間のドライブは避け、道の駅やサービスエリアを活用しましょう。\n\n## 宮崎で意識したいこと\n日差し対策と水分補給は必須。海辺に行く日は着替えを多めに用意しておくと安心です。",
+    "published": true,
+    "featured": false,
+    "date": "2026-09-10",
+    "updatedAt": "2026-09-10",
+    "tags": [
+      "赤ちゃん連れ",
+      "持ち物",
+      "移動のコツ"
+    ],
+    "ageGroups": [
+      "0-2歳"
+    ],
+    "practical": [
+      "駐車場あり",
+      "ベビーカーOK"
+    ],
+    "affiliate": {
+      "rakuten": "https://travel.rakuten.co.jp/",
+      "jalan": "https://www.jalan.net/",
+      "yahoo": "https://travel.yahoo.co.jp/"
+    },
+    "seo": {
+      "metaDescription": "赤ちゃん連れで宮崎旅行へ行くときの持ち物と移動のコツを整理。家族旅行前にチェックしておきたいポイントを紹介。",
+      "keywords": "宮崎,赤ちゃん連れ,旅行,持ち物,家族旅行"
+    }
+  },
+  {
+    "id": "kagoshima-family-spot",
+    "title": "鹿児島の家族旅行で外せない定番スポット6選",
+    "area": "kagoshima",
+    "category": "spot",
+    "icon": "🌋",
+    "coverImage": "https://picsum.photos/id/1022/1200/760",
+    "coverAlt": "火山の見える景色",
+    "excerpt": "桜島や水族館など、初めての鹿児島家族旅行で押さえておきたい定番スポットを紹介。",
+    "content": "## 鹿児島市内は回りやすい\n市内中心部は主要観光地がまとまっていて、家族旅行でも予定を組みやすいのが魅力です。\n\n## 桜島へはフェリーも楽しい\n移動そのものが子どもの思い出になります。\n\n## 雨の日の代替案も用意\n水族館や屋内スポットを1つ決めておくと、急な天気変化にも安心です。",
+    "published": true,
+    "featured": false,
+    "date": "2026-09-09",
+    "updatedAt": "2026-09-09",
+    "tags": [
+      "定番スポット",
+      "家族旅行",
+      "鹿児島観光"
+    ],
+    "ageGroups": [
+      "3-6歳",
+      "7歳以上"
+    ],
+    "practical": [
+      "駐車場あり",
+      "屋内"
+    ],
+    "affiliate": {
+      "rakuten": "https://travel.rakuten.co.jp/",
+      "jalan": "https://www.jalan.net/",
+      "yahoo": "https://travel.yahoo.co.jp/"
+    },
+    "seo": {
+      "metaDescription": "鹿児島の家族旅行で外せない定番スポットを紹介。桜島、水族館など子どもと一緒に楽しみやすい観光地をまとめました。",
+      "keywords": "鹿児島,子連れ,観光,家族旅行,桜島"
+    }
+  },
+  {
+    "id": "saga-onsen-family",
+    "title": "佐賀で子連れ温泉旅を楽しむコツ｜嬉野・武雄エリアの回り方",
+    "area": "saga",
+    "category": "plan",
+    "icon": "♨️",
+    "coverImage": "https://picsum.photos/id/1039/1200/760",
+    "coverAlt": "温泉街の街並み",
+    "excerpt": "温泉デビューの子にもやさしい、佐賀の家族向け温泉旅の考え方をまとめました。",
+    "content": "## まずは移動しやすい宿を選ぶ\n宿で休憩しやすいと、子どものペースを崩しにくくなります。\n\n## お風呂は短時間でも十分\n長湯よりも、複数回に分けて入る方が家族旅行ではスムーズです。",
+    "published": true,
+    "featured": false,
+    "date": "2026-09-08",
+    "updatedAt": "2026-09-08",
+    "tags": [
+      "温泉",
+      "佐賀",
+      "家族旅行"
+    ],
+    "ageGroups": [
+      "0-2歳",
+      "3-6歳"
+    ],
+    "practical": [
+      "駐車場あり",
+      "授乳室あり"
+    ],
+    "affiliate": {
+      "rakuten": "https://travel.rakuten.co.jp/",
+      "jalan": "https://www.jalan.net/",
+      "yahoo": "https://travel.yahoo.co.jp/"
+    },
+    "seo": {
+      "metaDescription": "佐賀で子連れ温泉旅を楽しむコツを紹介。嬉野・武雄エリアを中心に、家族で動きやすい旅の組み方を解説。",
+      "keywords": "佐賀,子連れ,温泉,嬉野,武雄"
+    }
+  }
 ]

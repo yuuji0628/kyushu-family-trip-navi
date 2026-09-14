@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS articles (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  area TEXT NOT NULL,
+  category TEXT NOT NULL,
+  icon TEXT,
+  coverImage TEXT,
+  coverAlt TEXT,
+  excerpt TEXT,
+  content TEXT,
+  tags TEXT,
+  ageGroups TEXT,
+  practical TEXT,
+  affiliateRakuten TEXT,
+  affiliateJalan TEXT,
+  affiliateYahoo TEXT,
+  seoMetaDescription TEXT,
+  seoKeywords TEXT,
+  published INTEGER NOT NULL DEFAULT 1,
+  featured INTEGER NOT NULL DEFAULT 0,
+  date TEXT,
+  updatedAt TEXT
+);

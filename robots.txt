@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://kyushu-family-trip-navi.pages.dev/sitemap.xml
