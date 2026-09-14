@@ -1,27 +1,21 @@
-事前検証結果
+事前検証済み
 
-- diag route: OK
-- health route: OK
-- home route: OK
-- articles route: OK
-- article route: OK
-- admin route: OK
-- sitemap route: OK
-- robots route: OK
-- mobile menu: OK
-- canonical: OK
-- structured data: OK
-- scheduled publish: OK
-- safe empty bind: OK
+- premium route: OK
+- premium admin button: OK
+- 7 article ids: OK
+- auth retained: OK
+- D1 retained: OK
+- home route retained: OK
+- diag retained: OK
 - node --check: OK
-- mock D1 smoke test: OK
+- mock D1 batch update: OK
 
-/api/articles?health=1 [33m200[39m application/json; charset=utf-8
-/__diag [33m200[39m application/json; charset=utf-8
-/ [33m200[39m text/html; charset=utf-8
-/articles.html [33m200[39m text/html; charset=utf-8
-/article.html?id=test [33m200[39m text/html; charset=utf-8
-/admin.html [33m200[39m text/html; charset=utf-8
-/sitemap.xml [33m200[39m application/xml; charset=utf-8
-/robots.txt [33m200[39m text/plain; charset=utf-8
-AUTH OK
+- beppu-family-hotel: 2167文字 / 見出し14個
+- aso-family-drive: 1657文字 / 見出し9個
+- fukuoka-rainy-day: 2091文字 / 見出し14個
+- nagasaki-family-gourmet: 1730文字 / 見出し12個
+- miyazaki-baby-trip: 1745文字 / 見出し14個
+- kagoshima-family-spot: 1580文字 / 見出し11個
+- saga-onsen-family: 1735文字 / 見出し11個
+
+premium update route OK {"ok":true,"updated":7,"total":7,"missing":[],"errors":[]}
