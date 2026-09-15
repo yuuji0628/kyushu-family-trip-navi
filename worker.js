@@ -206,6 +206,11 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .rakutenResultInfo{min-width:0}.rakutenHotelName{display:block;font-size:17px;line-height:1.5;word-break:normal;overflow-wrap:anywhere}
 .affiliateTop{background:linear-gradient(135deg,#fff8ef,#fbfffd);border-width:2px}.affiliateTop b{display:block;font-size:20px;margin:4px 0 8px}
 .affiliateTop a{font-size:16px;padding:13px 18px}
+.authorBox{margin-top:30px;padding:20px;border-radius:18px;background:#f5faf8;border:1px solid var(--line)}
+.authorBox p{margin:8px 0;color:var(--muted);font-size:14px}.authorBox a{font-weight:800;color:var(--green2)}
+.relatedBox{margin-top:32px}.relatedGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.relatedGrid a{display:block;text-decoration:none;border:1px solid var(--line);border-radius:16px;padding:16px;background:#fff}
+.relatedGrid b,.relatedGrid span{display:block}.relatedGrid span{margin-top:6px;color:var(--muted);font-size:12px}
 @media(max-width:800px){.nav{display:none}.menuBtn{display:block}.grid{grid-template-columns:1fr}.areaGrid{grid-template-columns:repeat(2,1fr)}.hero{padding:48px 0}.heroGrid{grid-template-columns:1fr}.heroPanel{display:none}.section{padding:46px 0}.row{grid-template-columns:1fr}.sectionHead{align-items:start}.brand{font-size:20px}.searchbar{display:grid;grid-template-columns:1fr auto}.rakutenResultCard{grid-template-columns:82px minmax(0,1fr);align-items:start}.rakutenResultImg{width:82px;height:68px}.rakutenResultCard .rakutenUseBtn{grid-column:1/-1;width:100%;margin-top:2px}.rakutenHotelName{font-size:16px}.admin{padding:0 14px}.panel{padding:18px}.affiliateTop a{display:block;text-align:center;margin-right:0}.adminHero{display:block;padding:22px}.heroActions{justify-content:flex-start;margin-top:16px}.statGrid{grid-template-columns:1fr 1fr}.adminGrid2{grid-template-columns:1fr}.quickGrid{grid-template-columns:1fr 1fr}.smartCard{padding:18px}.activityItem{grid-template-columns:auto 1fr}.activityState{grid-column:2}.admin{padding:14px 12px 60px}}
 </style>
 </head><body>
@@ -301,7 +306,11 @@ async function articlePage(env, url) {
     a.affiliate.yahoo ? `<a rel="sponsored noopener" target="_blank" href="${esc(a.affiliate.yahoo)}">Yahoo!トラベル</a>` : ""
   ].join("");
   const tags = a.tags.map(t => `<span class="badge">${esc(t)}</span>`).join("");
-  const topRakutenCta = a.affiliate.rakuten ? `<div class="affiliate affiliateTop"><div class="small">PR｜この記事にはアフィリエイトリンクを含みます。</div><b>杉乃井ホテルの宿泊プラン・料金を確認</b><div><a rel="sponsored noopener" target="_blank" href="${esc(a.affiliate.rakuten)}">楽天トラベルで確認する</a></div></div>` : "";
+  const relatedAll = await listArticles(env.DB, { area:a.area, published:true });
+  const related = relatedAll.filter(x => x.id !== a.id).slice(0,3);
+  const relatedHtml = related.length ? `<section class="relatedBox"><h2>${esc(area)}の関連記事</h2><div class="relatedGrid">${related.map(x => `<a href="/article.html?id=${encodeURIComponent(x.id)}"><b>${esc(x.title)}</b><span>${esc(x.excerpt || "")}</span></a>`).join("")}</div></section>` : "";
+  const authorBox = `<section class="authorBox"><b>九州ファミリー旅ナビ編集部</b><p>公開情報を確認し、子連れ旅行での判断材料を加えて編集しています。実際に訪問していない施設について宿泊体験を装う表現は使用しません。</p><a href="/editorial-policy.html">編集方針・情報源について</a></section>`;
+  const topRakutenCta = a.affiliate.rakuten ? `<div class="affiliate affiliateTop"><div class="small">PR｜この記事にはアフィリエイトリンクを含みます。</div><b>最新の宿泊プラン・料金・空室を確認</b><div><a rel="sponsored noopener" target="_blank" href="${esc(a.affiliate.rakuten)}">楽天トラベルで確認する</a></div></div>` : "";
   const body = `<main class="article">
     <div class="badges"><span class="badge">${esc(area)}</span><span class="badge">${esc(cat)}</span>${tags}</div>
     <h1>${esc(a.title)}</h1>
@@ -311,17 +320,37 @@ async function articlePage(env, url) {
     ${topRakutenCta}
     <div class="articleBody"><p>${markdownLite(a.content)}</p></div>
     ${affiliateLinks ? `<div class="affiliate"><b>旅行予約をチェック</b><div>${affiliateLinks}</div><div class="small">PR｜リンクにはアフィリエイトを含みます。予約条件・料金はリンク先で最新情報をご確認ください。</div></div>` : ""}
+    ${authorBox}
+    ${relatedHtml}
   </main>`;
   const desc = a.seo.metaDescription || a.excerpt || a.title;
   const keywords = a.seo.keywords || a.tags.join(",");
   const canonical = url.origin + "/article.html?id=" + encodeURIComponent(a.id);
   const image = a.coverImage || "";
   const schema = {
-    "@context":"https://schema.org","@type":"Article","headline":a.title,"description":desc,
-    "datePublished":a.date || undefined,"dateModified":a.updatedAt || a.date || undefined,
-    "mainEntityOfPage":canonical,"publisher":{"@type":"Organization","name":"九州ファミリー旅ナビ"}
+    "@context":"https://schema.org",
+    "@graph":[
+      {
+        "@type":"Article",
+        "headline":a.title,
+        "description":desc,
+        "datePublished":a.date || undefined,
+        "dateModified":a.updatedAt || a.date || undefined,
+        "mainEntityOfPage":{"@type":"WebPage","@id":canonical},
+        "author":{"@type":"Organization","name":"九州ファミリー旅ナビ編集部","url":url.origin+"/editorial-policy.html"},
+        "publisher":{"@type":"Organization","name":"九州ファミリー旅ナビ","url":url.origin+"/"},
+        "image":image ? [image] : undefined
+      },
+      {
+        "@type":"BreadcrumbList",
+        "itemListElement":[
+          {"@type":"ListItem","position":1,"name":"ホーム","item":url.origin+"/"},
+          {"@type":"ListItem","position":2,"name":"記事一覧","item":url.origin+"/articles.html"},
+          {"@type":"ListItem","position":3,"name":a.title,"item":canonical}
+        ]
+      }
+    ]
   };
-  if (image) schema.image = [image];
   const head = `<meta name="description" content="${esc(desc)}"><meta name="keywords" content="${esc(keywords)}">
 <link rel="canonical" href="${esc(canonical)}"><meta property="og:type" content="article"><meta property="og:title" content="${esc(a.title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(canonical)}">${image ? `<meta property="og:image" content="${esc(image)}">` : ""}<meta name="twitter:card" content="summary_large_image"><script type="application/ld+json">${JSON.stringify(schema).replace(/</g,"\\u003c")}</script>`;
   return html(layout(a.title + "｜九州ファミリー旅ナビ", body, head));
@@ -359,190 +388,212 @@ async function upgradePremiumArticles(request, env) {
 
 
 
+function editorialSeed(value = "") {
+  let h = 2166136261;
+  for (const ch of String(value)) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h >>> 0);
+}
+function chooseBySeed(items, seed, offset = 0) {
+  return items[(seed + offset) % items.length];
+}
+function prefectureFromAddress(address = "") {
+  for (const p of ["福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県"]) {
+    if (address.includes(p)) return p;
+  }
+  return "九州";
+}
+function pricePerspective(n) {
+  const p = Number(n || 0);
+  if (!p) return "料金は日程やプランで変わるため、家族全員の総額で比較したい";
+  if (p < 10000) return "比較的手を伸ばしやすい価格帯のプランが見つかる可能性がある";
+  if (p < 20000) return "価格と滞在内容のバランスを見ながら選びたい";
+  if (p < 35000) return "安さだけでなく食事・客室・立地まで含めて納得感を見たい";
+  return "記念旅行向けの予算になることもあるため、プラン内容と総額を丁寧に比較したい";
+}
+
 function buildFamilyHotelArticle(hotel) {
-  const name = String(hotel.hotelName || "ホテル");
-  const address = String(hotel.address || "");
-  const access = String(hotel.access || "");
-  const special = String(hotel.hotelSpecial || "");
-  const price = hotel.hotelMinCharge ? Number(hotel.hotelMinCharge).toLocaleString() + "円〜" : "予約ページで確認";
-  const rating = hotel.reviewAverage ? "★" + hotel.reviewAverage : "予約ページで確認";
-  const reviews = hotel.reviewCount ? String(hotel.reviewCount) + "件" : "予約ページで確認";
+  const name = String(hotel.hotelName || "ホテル").trim();
+  const address = String(hotel.address || "").trim();
+  const access = String(hotel.access || "").trim();
+  const special = String(hotel.hotelSpecial || "").trim();
+  const priceNum = Number(hotel.hotelMinCharge || 0);
+  const ratingNum = Number(hotel.reviewAverage || 0);
+  const reviewNum = Number(hotel.reviewCount || 0);
+  const price = priceNum ? Number(priceNum).toLocaleString() + "円〜" : "予約ページで確認";
+  const rating = ratingNum ? "★" + ratingNum.toFixed(2).replace(/0+$/,"").replace(/\.$/,"") : "予約ページで確認";
+  const reviews = reviewNum ? reviewNum.toLocaleString() + "件" : "予約ページで確認";
+  const pref = prefectureFromAddress(address);
+  const seed = editorialSeed(hotel.hotelNo || name);
+  const checked = todayJst();
 
-  const content = `## ${name}は子連れ旅行の候補に入れたいホテル
+  const intro = chooseBySeed([
+    `子どもとの旅行で宿を選ぶとき、写真のきれいさや最安値だけでは決めきれません。実際に旅程へ落とし込むと、「移動で疲れすぎないか」「夕食まで機嫌がもつか」「翌朝の出発が楽か」といった現実的な条件が効いてきます。`,
+    `家族旅行のホテル選びは、大人だけの旅より少し複雑です。料金が良くても移動が大変なら負担になりますし、立地が良くても家族構成に合わないプランなら満足度は下がります。だからこそ、宿単体ではなく“家族の一日”の中で考える必要があります。`,
+    `ホテルを決める段階になると、「子連れでも本当に使いやすい？」「この価格に納得できる？」と迷うものです。そこで今回は、予約サイトの数値を並べるだけでなく、家族旅行でどう判断すればよいかまで踏み込んで整理します。`,
+    `せっかくの家族旅行なら、ホテル選びで消耗したくありません。大切なのは“有名かどうか”ではなく、自分たちの移動・予算・子どもの年齢に合うかどうか。この記事ではその視点から${name}を見ていきます。`,
+    `子連れの旅は予定どおりに進まないことが前提です。昼寝がずれたり、移動中に疲れたり、夕食前に眠くなったり。だからホテルには、旅程の余白を作ってくれる役割があります。${name}がその候補になるか、公開情報をもとに検討します。`
+  ], seed);
 
-家族旅行では、「どこを観光するか」と同じくらい「どこに泊まるか」が旅の満足度を左右します。特に赤ちゃんや小さな子どもと一緒の場合、移動距離、食事、休憩の取りやすさ、翌朝の動きやすさまで含めてホテルを選ぶことが大切です。
+  const angle = chooseBySeed([
+    "移動のしやすさと家族全員の総額",
+    "子どもの生活リズムとホテルで休める時間",
+    "食事条件・客室タイプ・キャンセル条件",
+    "観光を詰め込みすぎない旅程との相性"
+  ], seed, 2);
 
-今回紹介するのは「${name}」。楽天トラベルに掲載されている情報をもとに、子連れ旅行でチェックしたいポイント、予約前に確認しておきたいこと、1泊2日の過ごし方まで家族目線で整理します。
+  const title = chooseBySeed([
+    `${name}は子連れにおすすめ？料金・アクセス・口コミから家族旅行目線で徹底解説`,
+    `${name}を子連れで選ぶ前に｜料金・口コミ・アクセスと予約時の注意点`,
+    `${name}の子連れ宿泊ガイド｜家族旅行で後悔しないための予約チェックポイント`,
+    `${pref}の${name}は家族旅行向き？子ども連れで見るべきポイントを詳しく解説`
+  ], seed);
 
-※ホテルの設備・サービス・料金・営業時間などは変更される場合があります。この記事では楽天トラベルAPIで取得できた公開情報を中心に構成し、個別設備について確認できない事項は断定していません。最終的な条件は予約ページや公式サイトでご確認ください。
+  const verdict = ratingNum >= 4.5 && reviewNum >= 100
+    ? `楽天トラベル上では${rating}、口コミ${reviews}。評価と口コミ母数の両方が一定水準にあり、比較候補へ入れる根拠を作りやすいホテルです。`
+    : ratingNum >= 4.2
+      ? `楽天トラベル上の評価は${rating}${reviewNum ? `、口コミは${reviews}` : ""}。数値だけで決める必要はありませんが、プラン内容まで確認する価値があります。`
+      : `評価だけで結論を出さず、立地・料金・プラン条件まで含めて自分たちに合うか確認したいホテルです。`;
 
-## 基本情報
+  const content = `## まず結論｜${name}はこんな家族が検討しやすい
+
+${intro}
+
+今回の判断軸は「${angle}」。楽天トラベルAPIで取得した公開情報をベースに、数字を家族旅行の場面へ置き換えて考えます。実際に宿泊したと偽る表現は使わず、確認できた情報と編集部の判断を分けて記載します。
+
+${verdict}
+
+### 3行でわかるチェックポイント
+
+- 所在地：${address || "予約ページで確認"}
+- 最安料金の目安：${price}（日程・人数・プランで変動）
+- 楽天トラベル評価：${rating}／口コミ：${reviews}
+
+${special ? `施設紹介では「${special}」と案内されています。ホテル選びの手掛かりになりますが、サービス内容は変更される可能性があるため予約時に最新条件を確認してください。` : "施設固有のサービスは、予約ページと公式情報を照合してから判断するのがおすすめです。"}
+
+## 編集部が見る「おすすめ度」の考え方
+
+家族旅行ではランキングより相性が重要です。${name}を見るときは、①アクセス、②家族全員の総額、③子どもの年齢に合う客室・食事、④キャンセル条件、⑤口コミの母数、の5点をセットで確認します。
+
+${ratingNum >= 4.5 ? `評価${rating}は高い水準です。` : ratingNum ? `評価は${rating}です。` : "評価は予約ページで確認が必要です。"}${reviewNum >= 500 ? ` 口コミも${reviews}あり、一定の母数があります。` : reviewNum >= 50 ? ` 口コミ${reviews}は複数利用者の傾向を見る材料になります。` : " 口コミは点数だけでなく最近の投稿内容も確認してください。"}
+
+価格面では最安目安が${price}。${pricePerspective(priceNum)}という見方ができます。ただし、最安値は家族全員の支払総額ではない場合があります。
+
+## 基本情報｜予約前にまず確認する数字
 
 - ホテル名：${name}
-- 所在地：${address || "楽天トラベル予約ページで確認"}
-- アクセス：${access || "楽天トラベル予約ページで確認"}
-- 最安料金の目安：${price}
+- エリア：${pref}
+- 所在地：${address || "楽天トラベルで確認"}
+- アクセス：${access || "楽天トラベルで確認"}
+- 最安料金目安：${price}
 - 楽天トラベル評価：${rating}
 - 口コミ件数：${reviews}
+- 情報確認日：${checked}
 
-${special ? `楽天トラベルの施設紹介には「${special}」と案内されています。` : "施設の特徴は楽天トラベルの予約ページで最新情報を確認できます。"}
+料金・評価・口コミは変動するため、この記事の数字は比較の入口として使い、予約直前に最新情報を確認してください。
 
-## 子連れ旅行でホテルを選ぶときに最初に見るポイント
+## アクセスを家族旅行の目線で読む
 
-子ども連れのホテル選びでは、料金だけで比較すると失敗しやすくなります。大人だけの旅行なら多少の移動や予定変更も対応できますが、子どもがいると「眠い」「お腹が空いた」「抱っこして」が重なることがあります。
+${access ? `アクセス案内は「${access}」。到着日の観光をどこまで入れるか、チェックイン前後の動線を考える材料になります。` : `アクセス条件は予約ページで最新情報を確認してください。子連れでは最寄り駅・駐車場・送迎の3点を先に見ると旅程を組みやすくなります。`}
 
-まず見るべきなのは、ホテルまでのアクセスと、到着後に無理なく過ごせるかどうかです。${access ? `${name}のアクセス情報は「${access}」と案内されています。` : "アクセス条件は予約ページで確認してください。"} 車の場合は駐車場の有無や料金、公共交通機関の場合は最寄り駅や送迎の有無も確認しておくと安心です。
+${/駅|徒歩|送迎|バス/.test(access) ? `公共交通を使う家族なら、駅や送迎の時間を起点に一日を組むとスムーズです。荷物が多い日は、ホテルへ早めに移動できる余白を残しておくと安心です。` : `車移動なら、駐車場の場所・料金・出入り条件を予約前に確認しておくと安心です。チェックイン直前は30分ほど余裕を持たせると気持ちが楽になります。`}
 
-次に、チェックイン・チェックアウト時間を確認します。子どもの昼寝時間と重なる場合は、到着直後に部屋へ入れるかどうかで負担が大きく変わります。
+## 料金は“1人いくら”より家族全員の総額で見る
 
-## 料金は「大人2名」だけで見ない
+ホテル比較でありがちな失敗が、大人2名の検索結果だけで「安い・高い」を判断することです。子どもの宿泊料金は、年齢、食事、布団、添い寝条件で変わります。
 
-家族旅行の宿泊料金は、子どもの年齢、食事の有無、布団の有無で大きく変わります。
+予約時は、実際の宿泊日・家族全員の人数・食事条件・客室タイプ・キャンセル条件をそろえ、最後に支払総額を比較してください。
 
-検索画面で大人2名だけを入れて表示された料金と、実際の家族構成で入力した総額が異なることは珍しくありません。予約時には必ず、大人・小学生・幼児それぞれの人数を正しく入力してください。
+## 口コミは点数より「自分たちと似た家族」を探す
 
-${name}の現在の最安料金目安は${price}ですが、これは日程やプラン、人数によって変動します。週末、連休、夏休み、年末年始などは料金が大きく変わる可能性があります。
+赤ちゃん連れなら「ベビーカー移動」「部屋での過ごしやすさ」。幼児なら「館内移動」「夕食時間」。小学生なら「周辺観光へのアクセス」「朝食」「客室の広さ」など、見るポイントが変わります。
 
-予約ページでは「1人あたり」なのか「1室あたり」なのかも確認し、最後の決済直前に表示される総額で比較するのがおすすめです。
+${reviewNum ? `${name}には楽天トラベル上で${reviews}の口コミ情報があります。` : `${name}の口コミ件数は予約ページで確認してください。`} 最近の投稿から、自分たちと近い家族構成の意見を3〜5件見ると傾向をつかみやすくなります。
 
-## 赤ちゃん連れなら確認したいこと
+## 0〜2歳｜赤ちゃん連れなら“必須設備”から逆算
 
-0〜2歳の子どもとの旅行では、観光よりもホテル内で困らないことが重要です。
+確認したいのは、ベビーベッド、ベッドガード、離乳食対応、電子レンジ、子ども用アメニティ、貸出備品、添い寝条件などです。
 
-予約前に確認したいのは、ベビーベッド、ベッドガード、子ども用アメニティ、離乳食、電子レンジ、貸出備品などです。これらはホテルによって対応が異なるため、記事内では未確認のものを「ある」と断定しません。
+取得できていない設備を「ある」とは書きません。必要なものが決まっている家庭ほど、予約ページまたはホテルへ直接確認するのが確実です。
 
-必要な設備がある場合は、楽天トラベルのプラン詳細またはホテル公式サイトで確認し、不明点は宿泊施設へ問い合わせるのが確実です。
+## 3〜6歳｜夕方の“眠い”を想定する
 
-特にベッドを利用する場合は、子どもの転落対策を事前に考えておきましょう。和室や低いベッドを選べる場合は、赤ちゃん連れでは安心材料になることがあります。
+幼児との旅行で難しいのが夕方です。観光、チェックイン、入浴、夕食と続くと疲れが一気に出ることがあります。到着日は観光を一つ減らしてでも、ホテルへ早めに入る旅程が合う場合があります。
 
-## 3〜6歳の子どもなら「ホテルで過ごす時間」も考える
+## 小学生｜本人にもホテル選びへ参加してもらう
 
-幼児になると、ホテルに着いたあともまだ遊びたいということが増えてきます。
+小学生になると、どこに泊まるかも旅行の楽しみになります。ホテル写真を一緒に見て、客室・食事・周辺観光のどれを楽しみにしているか聞いてみると、家族の優先順位が見えます。
 
-館内施設、周辺の散歩場所、客室での過ごしやすさなど、「寝るだけではない時間」を想定しておくと旅程が組みやすくなります。
+## 食事付きか素泊まりか
 
-ただし、ホテルごとに施設内容は大きく異なります。${name}で利用できる館内施設については、宿泊日の最新情報を予約ページで確認してください。
+小さな子どもがいる家庭では、夕方に外へ食事に出ること自体が負担になることがあります。一方、ご当地グルメを楽しみたい家庭なら素泊まりや朝食のみが合うこともあります。
 
-子どもが楽しめる場所がホテル内にある場合でも、夕食直前まで遊ばせすぎると、食事中に眠くなってしまうことがあります。家族旅行では「予定を全部こなす」より、「一番楽しみたいことを一つ決める」ほうが結果的に満足しやすいです。
+## 客室選び｜広さより“寝かせ方”から考える
 
-## 小学生連れなら本人にもホテル選びに参加してもらう
+客室は「誰がどこで寝るか」を先に決めます。赤ちゃんや幼児ではベッドの高さや配置、小学生を含む家族ならベッド数や布団の条件まで確認したいところです。
 
-小学生になると、自分の好みがはっきりしてきます。
-
-旅行前にホテルの写真を見せて、「どの部屋がいい？」「何が楽しみ？」と聞いてみるのがおすすめです。自分で選んだという感覚があると、旅行そのものをより楽しみやすくなります。
-
-また、翌日の観光地までの移動時間も一緒に確認しておくと、朝の出発時間を決めやすくなります。
-
-## 食事付きプランを選ぶか、素泊まりにするか
-
-家族旅行では、食事付きプランにするかどうかも重要です。
-
-小さな子どもがいる場合、夕方に外へ食事へ出るだけでも大仕事になることがあります。ホテル内で食事を完結できるプランは、その点で大きなメリットがあります。
-
-一方、周辺のご当地グルメを楽しみたい場合や、子どもの食べられるものが限られている場合は、素泊まりや朝食のみのプランが合うこともあります。
-
-${name}の食事内容は、予約するプランによって異なる可能性があります。食事会場、提供形式、子ども料金、アレルギー対応については、必ずプラン詳細を確認してください。
-
-## 私ならこう組む｜1泊2日の家族旅行モデル
+## 1泊2日のモデルプラン
 
 ### 1日目
-
-午前中から目的地周辺へ移動し、昼食後に観光を1〜2か所。
-
-午後は予定を詰め込みすぎず、チェックイン時間に合わせてホテルへ向かいます。
-
-到着後はまず荷物を置き、子どもに少し休憩時間を作ります。大人は次の予定へすぐ動きたくなりますが、子どもは移動だけでも疲れています。
-
-夕食付きプランなら、食事時間の30〜60分前には部屋へ戻っておくと安心です。
-
-夜は無理に予定を追加せず、入浴や翌日の準備を済ませて早めに休みます。
+午前から昼にかけて${pref}へ移動。昼食後の観光は1〜2か所に絞り、チェックインの1時間ほど前にはホテル方向へ移動。到着後は30分ほど休憩を取ります。
 
 ### 2日目
+朝食後に荷物を整理し、チェックアウト。午前中に一つ観光し、昼食後は帰宅方向へ。家に着くまでを旅程として考え、体力を残します。
 
-朝食付きなら、混雑時間を避けられるか確認しておくとスムーズです。
+## このホテルが向いていそうな家族
 
-朝食後は荷物を整理し、チェックアウト。子どもが元気なら午前中に観光を一つ入れ、昼食後は帰宅方向へ移動します。
+- ${pref}で家族旅行の宿を探している
+- 料金だけでなく口コミやアクセスも比較したい
+- 子どもの年齢に合わせてプランを選びたい
+- 予約前に条件を確認して失敗を減らしたい
 
-家族旅行では、「帰宅するまでが旅程」と考えて、最後まで余裕を残しておくのがおすすめです。
+## 慎重に確認したいケース
 
-## 予約前に確認したいチェックリスト
+- 必須のベビー用品や特定設備がある
+- 駐車場や送迎が旅行の成否を左右する
+- 食物アレルギーなど個別対応が必要
+- 客室タイプやベッド構成に強い希望がある
 
-- 子どもの宿泊料金区分
-- 添い寝条件
-- 食事の有無
-- 子ども用メニューの有無
-- 駐車場・送迎
-- 客室タイプ
-- 禁煙・喫煙
-- ベッド構成
-- チェックイン・チェックアウト
-- キャンセル条件
-- 館内施設の営業時間
-- 予約プランに含まれるサービス
+## よくある質問
 
-ホテル予約では、同じ客室名でもプランによって内容が違うことがあります。
+### ${name}の最安料金はいくら？
+この記事作成時点の楽天トラベルAPIでは${price}が目安です。宿泊日、人数、食事、客室で変動するため、家族全員を入力して総額を確認してください。
 
-安いプランを見つけても、食事なし、返金不可、部屋指定不可など条件が異なる場合があります。料金だけで決めず、プラン名と条件まで確認してください。
+### 子連れでも利用しやすい？
+アクセス、客室、食事時間、添い寝条件まで含めて判断する必要があります。未確認設備は断定していないため、必要な設備は予約前に最新情報を確認してください。
 
-## 楽天トラベルで予約するときの見方
+### 口コミ評価は？
+記事作成時点では${rating}、口コミは${reviews}です。点数だけでなく最近の口コミも確認しましょう。
 
-楽天トラベルで${name}を予約する場合は、まず正しい人数と子どもの年齢区分を入力します。
+## 編集部のまとめ｜“家族に合うか”で最終判断
 
-次に、宿泊プランを料金順だけでなく「自分たちの旅行に必要な条件」で絞ります。
+${name}を検討するときに大切なのは、有名さやランキングだけで決めないことです。所在地は${address || "予約ページで確認"}。最安料金目安は${price}、楽天トラベル評価は${rating}、口コミは${reviews}です。
 
-家族旅行なら、食事付き、禁煙、駐車場、客室タイプ、キャンセル条件などを優先して確認すると比較しやすくなります。
+記事内の楽天トラベルリンクから、最新料金・空室・宿泊プランを確認できます。
 
-口コミを見るときは、総合点だけでなく、自分たちと似た家族構成の投稿を探すのも参考になります。ただし、口コミは宿泊時期や個人の感じ方によって差があるため、最新の公式情報と合わせて見るのがおすすめです。
+---
 
-この記事内の楽天トラベルボタンから、${name}の最新プラン・料金・空室状況を確認できます。
+**編集方針と情報源について**  
+この記事は${checked}時点で楽天トラベルAPIから取得した施設情報を基礎資料とし、九州ファミリー旅ナビ編集部が子連れ旅行での判断材料を加えて構成しています。実際に宿泊したと誤認させる体験談は掲載していません。施設情報・料金・サービスは変更されるため、予約前に必ず最新情報をご確認ください。
 
-## このホテルが向いているか判断する方法
-
-ホテル選びに絶対的な正解はありません。
-
-「観光をたくさんしたい家族」と「ホテルでのんびりしたい家族」では、良いホテルの条件が違います。
-
-${name}を検討するときは、次の3つを家族で決めてみてください。
-
-1. 今回の旅行で一番楽しみにしていること
-2. ホテルで何時間くらい過ごす予定か
-3. 子どもが疲れたときに予定を減らせるか
-
-この3つが整理できると、料金だけでは判断できなかった「自分たちに合うホテルかどうか」が見えやすくなります。
-
-## まとめ｜予約前に条件を確認して家族に合うプランを選ぼう
-
-${name}は、${address ? `${address}にある` : ""}家族旅行の宿泊先候補としてチェックしたいホテルです。
-
-楽天トラベル上の現在の評価は${rating}、最安料金の目安は${price}。ただし、料金やプラン内容は宿泊日によって変わります。
-
-子ども連れでは、最安値だけで選ぶより、移動、食事、客室、子どもの料金区分、キャンセル条件まで含めて比較することが大切です。
-
-特に赤ちゃんや幼児と一緒なら、予定を詰め込みすぎず、ホテルで休める時間を最初から旅程に入れておくと安心です。
-
-宿泊プラン・空室・最新料金は、この記事内の楽天トラベルリンクから確認できます。
-
-※この記事にはアフィリエイトリンクを含みます。リンクを経由して予約された場合、当サイトに報酬が発生することがあります。料金や予約条件に影響はありません。`;
+**広告について**  
+この記事にはアフィリエイトリンクを含みます。リンク経由の予約で当サイトに報酬が発生する場合がありますが、読者の予約料金が上乗せされるものではありません。`;
 
   return {
     id: "hotel-" + String(hotel.hotelNo || Date.now()),
-    title: `${name}は子連れにおすすめ？料金・アクセス・予約前の注意点を家族旅行目線で徹底解説`,
-    area: /大分/.test(address) ? "oita" :
-          /福岡/.test(address) ? "fukuoka" :
-          /熊本/.test(address) ? "kumamoto" :
-          /佐賀/.test(address) ? "saga" :
-          /長崎/.test(address) ? "nagasaki" :
-          /宮崎/.test(address) ? "miyazaki" :
-          /鹿児島/.test(address) ? "kagoshima" : "kyushu",
+    title,
+    area: /大分/.test(address) ? "oita" : /福岡/.test(address) ? "fukuoka" : /熊本/.test(address) ? "kumamoto" : /佐賀/.test(address) ? "saga" : /長崎/.test(address) ? "nagasaki" : /宮崎/.test(address) ? "miyazaki" : /鹿児島/.test(address) ? "kagoshima" : "kyushu",
     category: "hotel",
     icon: "🏨",
-    excerpt: `${name}を子連れで利用するときに確認したい料金、アクセス、食事、客室、子ども料金、予約時の注意点を家族旅行目線で詳しくまとめました。`,
+    excerpt: `${name}を子連れで選ぶ前に確認したいポイントを、料金・口コミ・アクセス・年齢別の旅程まで家族旅行目線で整理。予約で後悔しないための判断材料をまとめました。`,
     content,
-    tags: [name, "子連れホテル", "家族旅行", "九州旅行"],
+    tags: [name, pref, "子連れホテル", "家族旅行", "九州旅行"],
     ageGroups: ["0-2歳","3-6歳","7歳以上"],
-    practical: ["子どもの料金区分を確認","食事条件を確認","キャンセル条件を確認","最新情報は予約ページで確認"],
-    seoMetaDescription: `${name}は子連れにおすすめ？料金、アクセス、食事、客室、子ども料金、予約前に確認したいポイントを家族旅行目線で詳しく解説。`,
-    seoKeywords: `${name} 子連れ,${name} 家族旅行,${name} 口コミ,${name} 料金,九州 子連れ ホテル`
+    practical: ["家族全員の総額を確認","子どもの料金区分を確認","最近の口コミを確認","必須設備は公式情報で確認"],
+    seoMetaDescription: `${name}は子連れにおすすめ？${pref}の家族旅行で気になる料金・口コミ・アクセス・子どもの年齢別ポイント・予約前の注意点を詳しく解説。`,
+    seoKeywords: `${name} 子連れ,${name} 家族旅行,${name} 口コミ,${name} 料金,${pref} 子連れ ホテル`
   };
 }
 
@@ -769,12 +820,19 @@ async function autoCreateKyushuHotelArticle(env, options = {}) {
     return { ok:false, skipped:true, reason:"候補ホテルが見つかりませんでした", prefecture:pref.name };
   }
 
-  // 3) 評価・口コミを加味し、既に記事化したホテルを除外。
+  // 3) おすすめ記事として公開できる最低品質を満たす候補だけを対象にする。
+  candidates = candidates.filter(h => {
+    const rating = Number(h.reviewAverage || 0);
+    const reviews = Number(h.reviewCount || 0);
+    const facts = [h.address, h.access, h.hotelSpecial, h.hotelMinCharge].filter(Boolean).length;
+    return h.hotelNo && h.hotelName && h.address && facts >= 2 &&
+      ((rating >= 4.0 && reviews >= 20) || (rating >= 4.3 && reviews >= 8));
+  });
+
   candidates.sort((a,b) => candidateScore(b) - candidateScore(a));
 
   let selected = null;
   for (const h of candidates) {
-    if (!h.hotelNo) continue;
     const articleId = "hotel-" + h.hotelNo;
     const exists = await env.DB.prepare("SELECT id FROM articles WHERE id = ? LIMIT 1").bind(articleId).first();
     if (exists) continue;
@@ -1221,6 +1279,22 @@ async function handleApi(request, env) {
   }
 
   return json({ error:"Method not allowed" }, { status:405 });
+}
+
+
+function editorialPolicyPage(url) {
+  const body = `<main class="article">
+    <div class="badges"><span class="badge">運営情報</span><span class="badge">編集方針</span></div>
+    <h1>九州ファミリー旅ナビの編集方針</h1>
+    <p class="lead">子連れ旅行で役立つ判断材料を、確認できる情報と編集部の見解を分けて届けます。</p>
+    <h2>記事の作り方</h2><p>楽天トラベルAPI等の公開情報を基礎資料とし、料金・評価・口コミ件数・住所・アクセスなどを家族旅行の視点で整理します。情報量や口コミの根拠が一定基準に満たない候補は自動公開しません。</p>
+    <h2>実体験を装わない</h2><p>実際に宿泊していない施設について「泊まった」「体験した」など事実と異なる表現は使用しません。確認できない設備も断定しません。</p>
+    <h2>情報更新</h2><p>料金・設備・サービス等は変更されるため、記事に確認時点を示し、予約前に最新情報を確認することを推奨します。</p>
+    <h2>自動作成について</h2><p>1日1記事を基本とし、重複を除外します。評価・口コミ・施設情報の基準を満たさない場合は作成をスキップします。</p>
+    <h2>広告</h2><p>一部の記事にはアフィリエイトリンクを含み、PR表記を行います。</p>
+  </main>`;
+  const canonical = url.origin + "/editorial-policy.html";
+  return html(layout("編集方針｜九州ファミリー旅ナビ", body, `<meta name="description" content="九州ファミリー旅ナビの編集方針、情報源、自動作成、広告について。"><link rel="canonical" href="${esc(canonical)}">`));
 }
 
 function adminPage() {
@@ -1739,6 +1813,7 @@ export default {
       if (url.pathname === "/sitemap.xml") return await sitemapPage(env, url);
       if (url.pathname === "/robots.txt") return robotsPage(url);
       if (url.pathname === "/article.html") return await articlePage(env, url);
+      if (url.pathname === "/editorial-policy.html") return editorialPolicyPage(url);
       if (url.pathname === "/admin.html") return adminPage();
       return html(layout("ページが見つかりません", '<main class="article"><h1>404</h1><p>ページが見つかりません。</p></main>'), { status:404 });
     } catch (e) {
