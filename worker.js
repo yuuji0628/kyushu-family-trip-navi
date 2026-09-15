@@ -273,17 +273,28 @@ async function listArticles(db, opts = {}) {
 
 function markdownLite(src = "") {
   const safe = esc(src);
+  let h2Index = 0;
   return safe
-    .replace(/^&gt; POINT: (.+)$/gm, '<div class="editorPoint"><b>編集部ポイント</b><span>$1</span></div>')
-    .replace(/^&gt; CHECK: (.+)$/gm, '<div class="checkPoint"><b>予約前チェック</b><span>$1</span></div>')
-    .replace(/^&gt; MEMO: (.+)$/gm, '<div class="memoPoint"><b>ひとことメモ</b><span>$1</span></div>')
+    .replace(/^&gt; POINT: (.+)$/gm, '<div class="editorPoint"><div class="familyTipIcon">💡</div><div><b>家族旅行ポイント</b><span>$1</span></div></div>')
+    .replace(/^&gt; CHECK: (.+)$/gm, '<div class="checkPoint"><div class="familyTipIcon">✅</div><div><b>予約前チェック</b><span>$1</span></div></div>')
+    .replace(/^&gt; MEMO: (.+)$/gm, '<div class="memoPoint"><div class="familyTipIcon">📝</div><div><b>ひとことメモ</b><span>$1</span></div></div>')
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, '<figure class="articlePhoto"><img src="$2" alt="$1" loading="lazy"><figcaption>$1</figcaption></figure>')
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+    .replace(/^## (.+)$/gm, function(_, title){ h2Index += 1; return '<h2 id="section-'+h2Index+'">'+title+'</h2>'; })
     .replace(/^- (.+)$/gm, "<li>$1</li>")
     .replace(/((?:<li>.*<\/li>\n?)+)/g, "<ul>$1</ul>")
     .replace(/\n{2,}/g, "</p><p>")
     .replace(/\n/g, "<br>");
+}
+
+function articleToc(content = "") {
+  const rows = String(content || "").split("\n");
+  const items = [];
+  for (const row of rows) {
+    const m = row.match(/^##\s+(.+)$/);
+    if (m) items.push(m[1].trim());
+  }
+  return items.slice(0, 8);
 }
 
 function layout(title, body, extraHead = "") {
@@ -315,6 +326,14 @@ a{color:inherit}.wrap{max-width:1080px;margin:auto;padding:0 20px}.header{positi
 .pad{padding:24px}.badges{display:flex;gap:8px;flex-wrap:wrap}.badge{font-size:13px;font-weight:850;background:var(--soft);color:var(--green2);padding:5px 10px;border-radius:999px}.card h3{font-size:23px;line-height:1.45;margin:12px 0}.meta{font-size:14px;color:var(--muted)}
 .areaGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.area{background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;text-align:center;text-decoration:none;transition:.2s transform}.area:hover{transform:translateY(-2px)}.area .e{font-size:44px}
 .article{max-width:820px;margin:auto;padding:48px 20px}.article h1{font-size:clamp(34px,6vw,56px);line-height:1.25}.article .heroimg{border-radius:24px;overflow:hidden;background:linear-gradient(135deg,#e7f7f1,#fff2cf);min-height:320px;display:flex;align-items:center;justify-content:center;font-size:92px}.article .heroimg img{width:100%;max-height:520px;object-fit:cover}.articleBody{font-size:18px}.articleBody h2{margin-top:38px}.affiliate{margin:36px 0;padding:24px;border:1px solid var(--line);border-radius:18px;background:#fbfffd}.affiliate a{display:inline-block;margin:6px 8px 6px 0;padding:10px 14px;border-radius:10px;background:var(--green);color:#fff;text-decoration:none;font-weight:750}
+.familyArticle{max-width:900px;padding-top:26px}.articleBreadcrumb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-bottom:16px}.articleBreadcrumb a{text-decoration:none}.familyHeroCard{border:1px solid var(--line);border-radius:30px;overflow:hidden;background:#fff;box-shadow:0 16px 44px rgba(23,55,46,.08)}
+.familyHeroVisual{position:relative;min-height:360px;overflow:hidden;background:linear-gradient(135deg,#dff5ec,#fff1cb);display:flex;align-items:center;justify-content:center}.familyHeroVisual>img{width:100%;height:100%;min-height:360px;max-height:520px;object-fit:cover}.familyHeroEmoji{font-size:100px}.familyHeroShade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(14,55,45,.52),rgba(14,55,45,.03) 58%,rgba(255,255,255,.03))}.familyHeroCopy{position:absolute;left:34px;bottom:34px;color:#fff;display:grid;gap:4px;text-shadow:0 2px 12px rgba(0,0,0,.2)}.familyHeroCopy span{font-size:17px;font-weight:800}.familyHeroCopy b{font-size:26px;line-height:1.35;max-width:420px}.familyBubble{position:absolute;right:28px;top:26px;background:#fff9e8;color:var(--ink);border-radius:48% 52% 48% 52%;padding:17px 21px;font-size:14px;font-weight:850;line-height:1.45;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.1);transform:rotate(2deg)}
+.familyHeroInfo{padding:28px 30px 30px}.familyHeroInfo h1{font-size:clamp(31px,5vw,48px);margin:12px 0 10px;letter-spacing:-.025em}.familyLead{font-size:18px;color:#405d54;margin:10px 0 20px}.areaBadge{background:#dff5ea!important}.catBadge{background:#fff0d6!important;color:#7c5b16!important}.familyFeatures{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:22px}.familyFeature{min-height:92px;border-radius:24px;display:grid;place-items:center;text-align:center;padding:10px 6px}.familyFeature span{font-size:26px}.familyFeature b{font-size:12px}.familyFeature.mint{background:#e9f8e6}.familyFeature.peach{background:#fff0ea}.familyFeature.blue{background:#e7f5ff}.familyFeature.yellow{background:#fff6d9}.familyFeature.sky{background:#eaf4ff}.familyFeature.pink{background:#fff0f4}
+.familyBooking{margin:24px 0;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;border:1px solid #ecdca7;background:linear-gradient(135deg,#fff9df,#f3fbf7);border-radius:24px;padding:18px 20px}.familyBookingIcon{width:54px;height:54px;border-radius:18px;background:#0f6f50;color:#fff;display:grid;place-items:center;font-size:25px}.familyBookingText{display:grid;gap:2px}.familyBookingText small{font-size:11px;color:var(--muted)}.familyBookingText b{font-size:17px}.familyBookingText span{font-size:12px;color:var(--muted)}.familyBooking>a{background:#0f6f50;color:#fff;text-decoration:none;font-weight:900;border-radius:16px;padding:13px 16px;white-space:nowrap}
+.familyToc{margin:24px 0;border:1px solid #eadfb7;background:#fffaf0;border-radius:24px;padding:20px}.familyTocHead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.familyTocHead>div{display:flex;align-items:center;gap:8px}.familyTocHead b{font-size:18px}.familyTocHead small{color:var(--muted)}.familyTocGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.familyTocGrid a{display:flex;gap:9px;align-items:center;text-decoration:none;background:#fff;border:1px solid #efe6c6;border-radius:999px;padding:9px 12px;font-weight:800;font-size:13px}.familyTocGrid a span{width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;flex:0 0 auto}
+.familyArticleBody{font-size:18px;color:#24443a;counter-reset:familysection}.familyArticleBody>p{margin:0}.familyArticleBody h2{counter-increment:familysection;margin:48px 0 20px;padding:17px 18px;border-radius:20px;background:linear-gradient(90deg,#e7f7f1,#f8fcfa);font-size:27px;line-height:1.35;display:flex;align-items:center;gap:12px}.familyArticleBody h2:before{content:counter(familysection);width:38px;height:38px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:18px;font-weight:900;flex:0 0 auto}.familyArticleBody h3{margin:28px 0 12px;font-size:21px}.familyArticleBody p{line-height:2}.familyArticleBody ul{background:#fbfefd;border:1px solid var(--line);border-radius:20px;padding:18px 22px 18px 42px}.familyArticleBody li{margin:6px 0}.familyTipIcon{width:42px;height:42px;border-radius:15px;background:#fff;display:grid;place-items:center;font-size:20px;flex:0 0 auto}.editorPoint,.checkPoint,.memoPoint{display:flex!important;gap:12px!important;align-items:flex-start!important;border-radius:22px!important;padding:18px!important;margin:22px 0!important}.editorPoint{background:#eef9f5!important;border-left:5px solid #39a17c!important}.checkPoint{background:#fff9e9!important;border-left:5px solid #e1ad20!important}.memoPoint{background:#eef5fb!important;border-left:5px solid #7a9bb7!important}.editorPoint>div:last-child,.checkPoint>div:last-child,.memoPoint>div:last-child{display:grid;gap:4px}.articlePhoto{margin:26px 0 30px!important}.articlePhoto img{border-radius:24px!important;box-shadow:0 12px 30px rgba(20,67,53,.08)}.articlePhoto figcaption{padding:0 4px;color:var(--muted)}
+.familySectionTitle{display:flex;align-items:center;gap:10px}.familySectionTitle span{font-size:24px}.familySectionTitle h2{margin:0;font-size:24px}.familyAffiliate{background:linear-gradient(135deg,#fff9e4,#f2fbf7);border-radius:24px}.familyAffiliateButtons{margin-top:14px}.familyAffiliateButtons a{border-radius:14px!important;padding:12px 16px!important}.familyAuthor{display:flex;gap:16px;align-items:flex-start;background:#f4fbf8;border:1px solid var(--line);border-radius:24px;padding:22px;margin:30px 0}.familyAuthorIcon{width:56px;height:56px;border-radius:18px;background:#fff;display:grid;place-items:center;font-size:27px;flex:0 0 auto}.familyAuthor p{margin:5px 0 8px;color:var(--muted)}.familyRelated{margin-top:34px}.familyRelated .relatedGrid{margin-top:14px}
+
 .footer{background:#16352c;color:#fff;padding:44px 0;margin-top:60px}.footer a{color:#fff}
 .filterbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}.filterbar a{padding:8px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none}.searchbar{display:flex;gap:10px;margin:0 0 22px}.searchbar input{flex:1}
 .login{max-width:520px;margin:70px auto;padding:28px;border:1px solid var(--line);border-radius:22px}.input,textarea,select{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff}.field{margin:14px 0}.admin{max-width:1000px;margin:40px auto;padding:0 20px}.panel{border:1px solid var(--line);border-radius:20px;padding:24px;margin:20px 0}
@@ -379,7 +398,7 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .articlePhoto figcaption{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
 .editorPoint b,.checkPoint b,.memoPoint b{font-size:13px}.editorPoint span,.checkPoint span,.memoPoint span{font-size:15px;line-height:1.7}
 
-@media(max-width:800px){.nav{display:none}.menuBtn{display:block}.grid{grid-template-columns:1fr}.areaGrid{grid-template-columns:repeat(2,1fr)}.hero{padding:48px 0}.heroGrid{grid-template-columns:1fr}.heroPanel{display:none}.section{padding:46px 0}.row{grid-template-columns:1fr}.sectionHead{align-items:start}.brand{font-size:20px}.searchbar{display:grid;grid-template-columns:1fr auto}.rakutenResultCard{grid-template-columns:82px minmax(0,1fr);align-items:start}.rakutenResultImg{width:82px;height:68px}.rakutenResultCard .rakutenUseBtn{grid-column:1/-1;width:100%;margin-top:2px}.rakutenHotelName{font-size:16px}.admin{padding:0 14px}.panel{padding:18px}.affiliateTop a{display:block;text-align:center;margin-right:0}.adminHero{display:block;padding:22px}.heroActions{justify-content:flex-start;margin-top:16px}.statGrid{grid-template-columns:1fr 1fr}.adminGrid2{grid-template-columns:1fr}.quickGrid{grid-template-columns:1fr 1fr}.smartCard{padding:18px}.activityItem{grid-template-columns:auto 1fr}.activityState{grid-column:2}.admin{padding:14px 12px 60px}}
+@media(max-width:800px){.nav{display:none}.menuBtn{display:block}.familyArticle{padding:18px 14px 44px}.familyHeroVisual{min-height:250px}.familyHeroVisual>img{min-height:250px;max-height:330px}.familyHeroCopy{left:18px;bottom:20px}.familyHeroCopy span{font-size:13px}.familyHeroCopy b{font-size:19px;max-width:240px}.familyBubble{right:14px;top:14px;font-size:11px;padding:11px 13px}.familyHeroInfo{padding:20px 18px 22px}.familyHeroInfo h1{font-size:30px}.familyLead{font-size:16px}.familyFeatures{grid-template-columns:repeat(3,1fr)}.familyFeature{min-height:82px}.familyBooking{grid-template-columns:auto 1fr}.familyBooking>a{grid-column:1/-1;text-align:center}.familyTocGrid{grid-template-columns:1fr}.familyTocHead small{display:none}.familyArticleBody{font-size:16px}.familyArticleBody h2{font-size:22px;margin-top:36px;padding:14px}.familyArticleBody h2:before{width:34px;height:34px}.familyAuthor{display:block}.familyAuthorIcon{margin-bottom:10px}.grid{grid-template-columns:1fr}.areaGrid{grid-template-columns:repeat(2,1fr)}.hero{padding:48px 0}.heroGrid{grid-template-columns:1fr}.heroPanel{display:none}.section{padding:46px 0}.row{grid-template-columns:1fr}.sectionHead{align-items:start}.brand{font-size:20px}.searchbar{display:grid;grid-template-columns:1fr auto}.rakutenResultCard{grid-template-columns:82px minmax(0,1fr);align-items:start}.rakutenResultImg{width:82px;height:68px}.rakutenResultCard .rakutenUseBtn{grid-column:1/-1;width:100%;margin-top:2px}.rakutenHotelName{font-size:16px}.admin{padding:0 14px}.panel{padding:18px}.affiliateTop a{display:block;text-align:center;margin-right:0}.adminHero{display:block;padding:22px}.heroActions{justify-content:flex-start;margin-top:16px}.statGrid{grid-template-columns:1fr 1fr}.adminGrid2{grid-template-columns:1fr}.quickGrid{grid-template-columns:1fr 1fr}.smartCard{padding:18px}.activityItem{grid-template-columns:auto 1fr}.activityState{grid-column:2}.admin{padding:14px 12px 60px}}
 </style>
 </head><body>
 <header class="header"><div class="wrap headerin">
@@ -459,40 +478,75 @@ async function articlesPage(env, url) {
 
 async function articlePage(env, url) {
   const id = url.searchParams.get("id");
-  if (!id) return html("記事IDがありません", { status: 400 });
-  const rows = await listArticles(env.DB, { id, published: true });
+  if (!id) return html("記事IDがありません", { status:400 });
+  const rows = await listArticles(env.DB, { id, published:true });
   const a = rows[0];
-  if (!a) return html("記事が見つかりません", { status: 404 });
+  if (!a) return html("記事が見つかりません", { status:404 });
+
   const area = AREA_LABELS[a.area] || a.area;
   const cat = CATEGORY_LABELS[a.category] || a.category;
+  const isHotel = a.category === "hotel" || /ホテル|宿|旅館/.test(a.title || "");
+  const contentText = [a.title, a.excerpt, a.content, ...(a.tags || [])].join(" ");
   const visual = a.coverImage
-    ? `<img src="${esc(a.coverImage)}" alt="${esc(a.coverAlt || a.title)}">`
-    : esc(a.icon || "🧳");
+    ? `<img src="${esc(a.coverImage)}" alt="${esc(a.coverAlt || a.title)}" loading="eager">`
+    : `<div class="familyHeroEmoji">${esc(a.icon || "🏨")}</div>`;
+
+  const featureDefs = [
+    [/子連れ|ファミリー|家族|ベビー|赤ちゃん/, "👶", "子連れ向き", "mint"],
+    [/温泉|大浴場|露天|湯|スパ/, "♨️", "温泉・お風呂", "peach"],
+    [/プール|アクア|水遊び|ウォーター/, "🏊", "プール", "blue"],
+    [/朝食|バイキング|ビュッフェ|食事/, "🍴", "食事", "yellow"],
+    [/駐車|パーキング/, "🅿️", "駐車場", "sky"],
+    [/ベビーカー|ベビーベッド|添い寝|離乳食/, "🍼", "ベビー対応", "pink"]
+  ];
+  const features = featureDefs.filter(([re]) => re.test(contentText)).slice(0,6);
+  if (!features.length) features.push([/.*/, "👨‍👩‍👧‍👦", "家族旅行", "mint"]);
+  const featureHtml = features.map(x => `<div class="familyFeature ${x[3]}"><span>${x[1]}</span><b>${x[2]}</b></div>`).join("");
+
+  const toc = articleToc(a.content);
+  const tocHtml = toc.length ? `<section class="familyToc"><div class="familyTocHead"><div><span>📖</span><b>この記事の目次</b></div><small>タップで移動できます</small></div><div class="familyTocGrid">${toc.map((t,i)=>`<a href="#section-${i+1}"><span>${i+1}</span>${esc(t)}</a>`).join("")}</div></section>` : "";
+
   const affiliateLinks = [
     a.affiliate.rakuten ? `<a rel="sponsored noopener" target="_blank" href="${esc(a.affiliate.rakuten)}">楽天トラベル</a>` : "",
     a.affiliate.jalan ? `<a rel="sponsored noopener" target="_blank" href="${esc(a.affiliate.jalan)}">じゃらん</a>` : "",
     a.affiliate.yahoo ? `<a rel="sponsored noopener" target="_blank" href="${esc(a.affiliate.yahoo)}">Yahoo!トラベル</a>` : ""
   ].join("");
-  const tags = a.tags.map(t => `<span class="badge">${esc(t)}</span>`).join("");
+
+  const tags = (a.tags || []).slice(0,4).map(t => `<span class="badge">${esc(t)}</span>`).join("");
   const relatedAll = await listArticles(env.DB, { area:a.area, published:true });
   const related = relatedAll.filter(x => x.id !== a.id).slice(0,3);
-  const relatedHtml = related.length ? `<section class="relatedBox"><h2>${esc(area)}の関連記事</h2><div class="relatedGrid">${related.map(x => `<a href="/article.html?id=${encodeURIComponent(x.id)}"><b>${esc(x.title)}</b><span>${esc(x.excerpt || "")}</span></a>`).join("")}</div></section>` : "";
-  const authorBox = `<section class="authorBox"><b>九州ファミリー旅ナビ編集部</b><p>公開情報を確認し、子連れ旅行での判断材料を加えて編集しています。実際に訪問していない施設について宿泊体験を装う表現は使用しません。</p><a href="/editorial-policy.html">編集方針・情報源について</a></section>`;
-  const topRakutenCta = a.affiliate.rakuten ? `<div class="affiliate affiliateTop"><div class="small">PR｜この記事にはアフィリエイトリンクを含みます。</div><b>最新の宿泊プラン・料金・空室を確認</b><div><a rel="sponsored noopener" target="_blank" href="${esc(a.affiliate.rakuten)}">楽天トラベルで確認する</a></div></div>` : "";
-  const body = `<main class="article">
-    <div class="badges"><span class="badge">${esc(area)}</span><span class="badge">${esc(cat)}</span>${tags}</div>
-    <h1>${esc(a.title)}</h1>
-    <p class="meta">公開 ${esc(a.date)} / 更新 ${esc(a.updatedAt || a.date)}</p>
-    <div class="heroimg">${visual}</div>
-    <p class="lead" style="font-size:18px">${esc(a.excerpt)}</p>
+  const relatedHtml = related.length ? `<section class="relatedBox familyRelated"><div class="familySectionTitle"><span>👑</span><h2>${esc(area)}の関連記事</h2></div><div class="relatedGrid">${related.map(x => `<a href="/article.html?id=${encodeURIComponent(x.id)}"><b>${esc(x.title)}</b><span>${esc(x.excerpt || "")}</span></a>`).join("")}</div></section>` : "";
+
+  const authorBox = `<section class="authorBox familyAuthor"><div class="familyAuthorIcon">👨‍👩‍👧‍👦</div><div><b>九州ファミリー旅ナビ編集部</b><p>公開情報を確認し、子連れ旅行で役立つポイントを家族目線で整理しています。実際に訪問していない施設について宿泊体験を装う表現は使用しません。</p><a href="/editorial-policy.html">編集方針・情報源について</a></div></section>`;
+
+  const topRakutenCta = a.affiliate.rakuten ? `<section class="familyBooking"><div class="familyBookingIcon">📅</div><div class="familyBookingText"><small>PR｜アフィリエイトリンクを含みます</small><b>${isHotel ? "楽天トラベルで空室・料金をチェック" : "楽天トラベルで最新情報をチェック"}</b><span>家族の予定に合うプランを先に確認しておくと安心です。</span></div><a rel="sponsored noopener" target="_blank" href="${esc(a.affiliate.rakuten)}">確認する →</a></section>` : "";
+
+  const body = `<main class="article familyArticle">
+    <nav class="articleBreadcrumb"><a href="/">⌂ ホーム</a><span>›</span><a href="/articles.html?area=${encodeURIComponent(a.area)}">${esc(area)}</a><span>›</span><span>${esc(cat)}</span></nav>
+
+    <section class="familyHeroCard">
+      <div class="familyHeroVisual">${visual}<div class="familyHeroShade"></div><div class="familyHeroCopy"><span>家族みんなで</span><b>${isHotel ? "ゆっくり楽しめる旅のヒント" : "思い出に残る旅のヒント"}</b></div><div class="familyBubble">👨‍👩‍👧‍👦<br>家族目線で<br>わかりやすく紹介！</div></div>
+      <div class="familyHeroInfo">
+        <div class="badges"><span class="badge areaBadge">${esc(area)}</span><span class="badge catBadge">${esc(cat)}</span>${tags}</div>
+        <p class="meta">${esc(a.date)}${a.updatedAt && a.updatedAt !== a.date ? ` ・ 更新 ${esc(a.updatedAt)}` : ""}</p>
+        <h1>${esc(a.title)}</h1>
+        <p class="familyLead">${esc(a.excerpt)}</p>
+        <div class="familyFeatures">${featureHtml}</div>
+      </div>
+    </section>
+
     ${topRakutenCta}
-    <div class="articleBody"><p>${markdownLite(a.content)}</p></div>
-    ${affiliateLinks ? `<div class="affiliate"><b>旅行予約をチェック</b><div>${affiliateLinks}</div><div class="small">PR｜リンクにはアフィリエイトを含みます。予約条件・料金はリンク先で最新情報をご確認ください。</div></div>` : ""}
+    ${tocHtml}
+
+    <article class="articleBody familyArticleBody"><p>${markdownLite(a.content)}</p></article>
+
+    ${affiliateLinks ? `<section class="affiliate familyAffiliate"><div class="familySectionTitle"><span>🧳</span><h2>旅行予約をチェック</h2></div><div class="familyAffiliateButtons">${affiliateLinks}</div><div class="small">PR｜リンクにはアフィリエイトを含みます。料金・空室・条件はリンク先で最新情報をご確認ください。</div></section>` : ""}
     ${authorBox}
     ${relatedHtml}
   </main>`;
+
   const desc = a.seo.metaDescription || a.excerpt || a.title;
-  const keywords = a.seo.keywords || a.tags.join(",");
+  const keywords = a.seo.keywords || (a.tags || []).join(",");
   const canonical = url.origin + "/article.html?id=" + encodeURIComponent(a.id);
   const image = a.coverImage || "";
   const schema = {
@@ -520,11 +574,9 @@ async function articlePage(env, url) {
     ]
   };
   const head = `<meta name="description" content="${esc(desc)}"><meta name="keywords" content="${esc(keywords)}">
-<link rel="canonical" href="${esc(canonical)}"><meta property="og:type" content="article"><meta property="og:title" content="${esc(a.title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(canonical)}">${image ? `<meta property="og:image" content="${esc(image)}">` : ""}<meta name="twitter:card" content="summary_large_image"><script type="application/ld+json">${JSON.stringify(schema).replace(/</g,"\\u003c")}</script>`;
-  return html(layout(a.title + "｜九州ファミリー旅ナビ", body, head));
+<link rel="canonical" href="${esc(canonical)}"><meta property="og:type" content="article"><meta property="og:title" content="${esc(a.title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(canonical)}">${image ? `<meta property="og:image" content="${esc(image)}">` : ""}<meta name="twitter:card" content="summary_large_image"><script type="application/ld+json">${JSON.stringify(schema)}</script>`;
+  return html(layout(a.title, body, head));
 }
-
-
 async function upgradePremiumArticles(request, env) {
   if (!env.DB) return json({ error: "D1 binding DB is not configured" }, { status: 500 });
   if (!requireAuth(request, env)) return unauthorized();
@@ -1925,7 +1977,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.4 / NATIVE DELETE</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.7.0 / FAMILY ARTICLE</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -1999,7 +2051,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.4</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.7.0</div>
       </form>
     </section>
 
@@ -2084,7 +2136,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.4 / NATIVE DELETE</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.7.0</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
