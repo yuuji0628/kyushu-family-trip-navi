@@ -1,17 +1,23 @@
 事前検証済み
 - Worker syntax: OK
-- Photo-driven sections: OK
-- Room family section: OK
-- Meal family section: OK
-- Pool family section: OK
-- Bath family section: OK
-- Facility family section: OK
-- Broader image collection: OK
-- Photo count: OK
-- Reader clean retained: OK
+- SEO title auto: OK
+- SEO description auto: OK
+- FAQ visible: OK
+- FAQ schema: OK
+- Hotel schema: OK
+- ImageObject schema: OK
+- Breadcrumb: OK
+- Article schema: OK
+- Purpose internal links: OK
+- SEO hub: OK
+- Hub route: OK
+- Hub sitemap: OK
+- Intent generator: OK
+- Photo-driven retained: OK
+- Reader cleanup retained: OK
 - Family magazine retained: OK
 - Room classification retained: OK
-- Native search retained: OK
+- Native hotel search retained: OK
 - Native login retained: OK
 - Native create retained: OK
 - Native delete retained: OK
@@ -20,4 +26,4 @@
 - Cron retained: OK
 - node --check: OK
 
-※ 本番楽天APIが実際に返す画像枚数はCloudflare Secretsが必要なためローカルではライブ取得していません。
+本番Googleクロール・Search Console・楽天API・Cloudflare D1/Secretsを使うライブ検証はローカルでは未実施です。
