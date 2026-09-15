@@ -203,6 +203,14 @@ details.adminFold>summary{list-style:none;cursor:pointer;padding:19px 22px;font-
 details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}details.adminFold[open]>summary:after{content:"−"}details.adminFold>.foldBody{border-top:1px solid var(--soft);padding:4px 22px 22px}
 .smartNotice{padding:12px 14px;border:1px solid #cfe4db;background:#f4fbf8;border-radius:14px;font-size:13px}
 .githubUploadBox{border:1px dashed #b8d7ca;background:#fbfefd;border-radius:18px;padding:18px}
+.filePickerLabel{position:relative;display:flex;align-items:center;gap:12px;width:100%;min-height:88px;padding:16px 18px;border:1px solid var(--line);border-radius:16px;background:#fff;cursor:pointer;box-sizing:border-box;-webkit-tap-highlight-color:rgba(0,0,0,.08);touch-action:manipulation}
+.filePickerLabel:active{transform:scale(.995);background:#f7fbf9}
+.filePickerLabel input[type="file"]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:5}
+.filePickerIcon{font-size:28px;flex:0 0 auto}
+.filePickerText{display:grid;gap:3px;min-width:0}
+.filePickerText b{font-size:16px}
+.filePickerText small{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
 .githubUploadMeta{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0;font-size:12px;color:var(--muted)}
 .progressTrack{height:9px;background:#e9f1ed;border-radius:999px;overflow:hidden;margin-top:12px}
 .progressBar{height:100%;width:0;background:#168861;transition:width .25s ease}
@@ -1582,7 +1590,7 @@ function adminPage() {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.2.9 / <span id="directDashVersion">direct loader</span></div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.3.0 / <span id="directDashVersion">direct loader</span></div>
       </div>
       <div class="heroActions">
         <button id="dashAutoRunBtn" class="btn" type="button">今すぐ1記事作成</button>
@@ -1633,7 +1641,11 @@ function adminPage() {
       <p class="sectionHint">JavaScriptを使わず、通常のフォーム送信でZIPをGitHubへ反映します。</p>
 
       <form id="githubZipForm" class="githubUploadBox" enctype="multipart/form-data" onsubmit="return githubZipFormSubmit(event)">
-        <input id="githubZipInput" name="zipfile" type="file" accept=".zip,application/zip" class="input" required>
+        <label class="filePickerLabel" for="githubZipInput">
+          <span class="filePickerIcon">📁</span>
+          <span class="filePickerText"><b>ZIPファイルを選ぶ</b><small id="githubFileName">未選択</small></span>
+          <input id="githubZipInput" name="zipfile" type="file" accept=".zip,application/zip,.ZIP" required onchange="githubFileNameDirect(this)">
+        </label>
         <div class="githubUploadMeta">
           <span>対象: <b>yuuji0628/kyushu-family-trip-navi</b></span>
           <span>ブランチ: <b>main</b></span>
@@ -1644,7 +1656,7 @@ function adminPage() {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.2.8 / FORM MODE</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.3.0 / TAP FIX</div>
       </form>
     </section>
 
@@ -1969,6 +1981,22 @@ document.addEventListener("DOMContentLoaded",function(){
 });
 </script>
 <script>
+
+
+function githubFileNameDirect(input){
+  var out=document.getElementById("githubFileName");
+  var status=document.getElementById("githubUploadStatus");
+  var btn=document.getElementById("githubZipUploadBtn");
+  var file=input && input.files && input.files[0];
+  if(file){
+    if(out) out.textContent=file.name;
+    if(status) status.textContent="選択済み："+file.name;
+    if(btn) btn.disabled=false;
+  }else{
+    if(out) out.textContent="未選択";
+    if(status) status.textContent="ZIPを選択してください。";
+  }
+}
 
 async function githubZipFormSubmit(ev){
   ev.preventDefault();
