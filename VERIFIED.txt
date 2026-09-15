@@ -1,18 +1,7 @@
 事前検証済み
-- Worker syntax: OK
-- Quick summary cards: OK
-- Magazine hero style: OK
-- Colored section rhythm: OK
-- Mobile sticky booking: OK
-- Family design retained: OK
-- Photo gallery retained: OK
-- Room classification retained: OK
-- Variation retained: OK
-- Native hotel search retained: OK
-- Native login retained: OK
-- Native create retained: OK
-- Native delete retained: OK
-- GitHub retained: OK
-- D1 retained: OK
-- Cron retained: OK
 - node --check: OK
+- 既存記事の表示時クリーニング: OK
+- 新規記事の内部表現削除: OK
+- Family Magazineデザイン: 維持
+- 写真ギャラリー/誤分類対策: 維持
+- Native操作/D1/Cron/GitHub: 維持
