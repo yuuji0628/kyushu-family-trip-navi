@@ -206,6 +206,14 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .githubUploadMeta{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0;font-size:12px;color:var(--muted)}
 .progressTrack{height:9px;background:#e9f1ed;border-radius:999px;overflow:hidden;margin-top:12px}
 .progressBar{height:100%;width:0;background:#168861;transition:width .25s ease}
+.contentRow{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:16px 0;border-bottom:1px solid var(--soft)}
+.contentRow:last-child{border-bottom:0}.contentMain{min-width:0}.contentTitle{font-weight:900;font-size:15px;line-height:1.5}
+.contentMeta{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:7px;font-size:11px;color:var(--muted)}
+.miniBadge{display:inline-flex;padding:4px 8px;border-radius:999px;background:#f1f4f3;font-weight:800}
+.miniBadge.ok{background:#eaf7f1;color:#16714f}.miniBadge.affiliate{background:#fff5df;color:#8a6200}
+.contentActions{display:flex;gap:7px;flex-shrink:0}.contentActions .btn{padding:8px 11px;font-size:12px}
+.errorNotice{border-color:#efd0d0;background:#fff7f7}
+
 
 .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.small{font-size:13px;color:var(--muted)}.status{padding:10px 14px;border-radius:10px;background:var(--soft);margin:12px 0}.preview{margin-top:10px;border:1px dashed var(--line);border-radius:14px;min-height:90px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted)}.preview img{width:100%;max-height:260px;object-fit:cover}
 .notice{padding:14px 16px;border-radius:12px;background:#fff8d8;border:1px solid #f2e29d}
@@ -1574,11 +1582,11 @@ function adminPage() {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.2.8 / <span id="directDashVersion">direct loader</span></div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.2.9 / <span id="directDashVersion">direct loader</span></div>
       </div>
       <div class="heroActions">
         <button id="dashAutoRunBtn" class="btn" type="button">今すぐ1記事作成</button>
-        <button id="dashRefreshBtn" class="btn sub" type="button" onclick="dashboardLoadDirect()">↻ 更新</button>
+        <button id="dashRefreshBtn" class="btn sub" type="button" onclick="dashboardLoadDirect();articleListLoadDirect()">↻ 更新</button>
         <button id="logoutBtn" class="btn sub" type="button">ログアウト</button>
       </div>
     </section>
@@ -1724,8 +1732,8 @@ function adminPage() {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2></div>
-        <button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.2.9</div></div>
+        <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="articleListLoadDirect()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       <div id="articleList">読み込み中...</div>
     </section>
@@ -1824,6 +1832,98 @@ async function dashboardLoadDirect(){
   }
 }
 
+
+async function articleListLoadDirect(){
+  var box=document.getElementById("articleList");
+  if(!box) return;
+
+  box.innerHTML='<div class="smartNotice">記事一覧を読み込み中...</div>';
+
+  var controller=new AbortController();
+  var timer=setTimeout(function(){controller.abort();},10000);
+
+  try{
+    var r=await fetch("/api/articles?published=0&_="+Date.now(),{
+      cache:"no-store",
+      signal:controller.signal
+    });
+
+    var text=await r.text();
+    var d={};
+    try{ d=text?JSON.parse(text):{}; }catch(e){ d={raw:text}; }
+
+    if(!r.ok){
+      throw new Error("HTTP "+r.status+" / "+(d.error||d.raw||"取得失敗"));
+    }
+
+    var rows=Array.isArray(d.articles)?d.articles:[];
+    if(!rows.length){
+      box.innerHTML='<div class="smartNotice">記事はまだありません。</div>';
+      return;
+    }
+
+    box.innerHTML=rows.map(function(a){
+      var published=!!a.published;
+      var affiliate=!!(a.affiliate && a.affiliate.rakuten);
+      var state=published?"公開":"下書き";
+      var date=a.updatedAt||a.date||"";
+      return '<div class="contentRow">'+
+        '<div class="contentMain">'+
+          '<div class="contentTitle">'+dashEsc(a.title||"無題")+'</div>'+
+          '<div class="contentMeta">'+
+            '<span class="miniBadge '+(published?'ok':'')+'">'+state+'</span>'+
+            (affiliate?'<span class="miniBadge affiliate">楽天リンクあり</span>':'')+
+            (date?'<span>'+dashEsc(date)+'</span>':'')+
+          '</div>'+
+        '</div>'+
+        '<div class="contentActions">'+
+          '<a class="btn sub" target="_blank" href="/article.html?id='+encodeURIComponent(a.id||"")+'">表示</a>'+
+          '<button class="btn sub" type="button" onclick="articleEditorOpenDirect('+JSON.stringify(String(a.id||""))+')">編集</button>'+
+        '</div>'+
+      '</div>';
+    }).join("");
+
+  }catch(e){
+    box.innerHTML='<div class="smartNotice errorNotice"><b>記事一覧取得エラー</b><br>'+
+      dashEsc(e&&e.name==="AbortError"?"10秒でタイムアウトしました":(e&&e.message?e.message:"不明なエラー"))+
+      '<br><button class="btn sub" type="button" onclick="articleListLoadDirect()" style="margin-top:10px">再読み込み</button></div>';
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function articleEditorOpenDirect(id){
+  var details=document.getElementById("articleEditorSection");
+  if(details) details.open=true;
+
+  try{
+    var r=await fetch("/api/articles?id="+encodeURIComponent(id)+"&_="+Date.now(),{cache:"no-store"});
+    var d=await r.json();
+    var a=(d.articles||[])[0];
+    if(!a) throw new Error("記事が見つかりません");
+
+    function setv(id,v){var el=document.getElementById(id);if(el)el.value=v==null?"":v;}
+    function setc(id,v){var el=document.getElementById(id);if(el)el.checked=!!v;}
+
+    setv("id",a.id); setv("title",a.title); setv("icon",a.icon||"🧳");
+    setv("area",a.area||"fukuoka"); setv("category",a.category||"spot"); setv("date",a.date||"");
+    setv("coverImage",a.coverImage||""); setv("coverAlt",a.coverAlt||"");
+    setv("excerpt",a.excerpt||""); setv("content",a.content||"");
+    setv("tags",(a.tags||[]).join(", ")); setv("ageGroups",(a.ageGroups||[]).join(", "));
+    setv("practical",(a.practical||[]).join(", "));
+    setv("rakuten",(a.affiliate&&a.affiliate.rakuten)||"");
+    setv("jalan",(a.affiliate&&a.affiliate.jalan)||"");
+    setv("yahoo",(a.affiliate&&a.affiliate.yahoo)||"");
+    setv("metaDescription",(a.seo&&a.seo.metaDescription)||"");
+    setv("keywords",(a.seo&&a.seo.keywords)||"");
+    setc("published",a.published); setc("featured",a.featured);
+
+    if(details) setTimeout(function(){details.scrollIntoView({behavior:"smooth",block:"start"});},60);
+  }catch(e){
+    alert("記事編集の読み込みに失敗しました: "+(e&&e.message?e.message:"不明なエラー"));
+  }
+}
+
 async function adminLoginDirect(){
   var btn=document.getElementById("loginBtn");
   var status=document.getElementById("loginStatus");
@@ -1842,6 +1942,7 @@ async function adminLoginDirect(){
       adminApp.style.display="block";
       status.textContent="ログイン成功";
       dashboardLoadDirect();
+      articleListLoadDirect();
       window.dispatchEvent(new CustomEvent("admin-direct-login",{detail:{password:pw}}));
     }else{
       status.textContent="パスワードが違います。（HTTP "+r.status+"）";
@@ -1856,6 +1957,7 @@ document.addEventListener("DOMContentLoaded",function(){
   setTimeout(function(){
     if(sessionStorage.getItem("adminPassword") && document.getElementById("adminApp") && document.getElementById("adminApp").style.display!=="none"){
       dashboardLoadDirect();
+      articleListLoadDirect();
     }
   },800);
   var input=document.getElementById("pw");
