@@ -1,21 +1,6 @@
 事前検証済み
-- Worker syntax: OK
-- Inline scripts syntax: OK
-- Native route: OK
-- Native handler: OK
-- Top submit: OK
-- Lower submit: OK
-- Engine: OK
-- Result message: OK
-- Native login: OK
-- Server render: OK
-- Edit: OK
-- Delete: OK
-- GitHub: OK
-- Rakuten: OK
-- D1: OK
-- Cron: OK
-- Photos: OK
-- Native buttons no onclick: OK
-
-本番CloudflareのD1/Secretsを使ったライブ実行のみ未実施です。
+- node --check: OK
+- Cloudflareエラー原因のトップレベルCSS: 0件
+- Native記事作成フォーム: OK
+- admin-auto-create endpoint: OK
+- D1 / Rakuten / GitHub / Cron: OK
