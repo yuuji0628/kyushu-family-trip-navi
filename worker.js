@@ -379,6 +379,7 @@ async function handleRakutenHotelSearch(request, env) {
 
   const params = new URLSearchParams({
     applicationId: env.RAKUTEN_APPLICATION_ID,
+    accessKey: env.RAKUTEN_ACCESS_KEY,
     format: "json",
     formatVersion: "2",
     keyword,
@@ -391,10 +392,7 @@ async function handleRakutenHotelSearch(request, env) {
 
   const apiUrl = "https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20260731?" + params.toString();
   const r = await fetch(apiUrl, {
-    headers: {
-      "accept": "application/json",
-      "accessKey": env.RAKUTEN_ACCESS_KEY
-    }
+    headers: { "accept": "application/json" }
   });
 
   const text = await r.text();
@@ -404,7 +402,12 @@ async function handleRakutenHotelSearch(request, env) {
   }
 
   if (!r.ok) {
-    return json({ error: "Rakuten API error", status: r.status, details: data }, { status: 502 });
+    return json({
+      error: "Rakuten API error",
+      rakutenStatus: r.status,
+      rakutenError: data?.error || "",
+      rakutenMessage: data?.error_description || data?.message || ""
+    }, { status: 502 });
   }
 
   const hotels = normalizeRakutenHotels(data);
@@ -621,7 +624,8 @@ function adminPage() {
     var r=await fetch("/api/rakuten-hotels?keyword="+encodeURIComponent(kw),{headers:headers()});
     var d=await r.json().catch(function(){return {};});
     if(!r.ok){
-      $("rakutenSearchStatus").textContent="検索失敗: HTTP "+r.status+" "+(d.error||"");
+      var detail=(d.rakutenError||d.rakutenMessage)?(" / "+(d.rakutenError||"")+(d.rakutenMessage?": "+d.rakutenMessage:"")):"";
+      $("rakutenSearchStatus").textContent="検索失敗: HTTP "+r.status+" "+(d.error||"")+detail;
       return;
     }
     $("rakutenSearchStatus").textContent=d.count+"件見つかりました。"+(d.affiliateEnabled?" アフィリエイトURL対応済み。":" ※Affiliate ID未設定のため通常URLです。");

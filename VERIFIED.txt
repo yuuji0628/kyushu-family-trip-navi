@@ -1,13 +1,8 @@
 事前検証済み
-
-- 楽天検索ルート: OK
-- 2026-07-31 API: OK
-- Application ID: OK
-- Access Key: OK
-- Affiliate ID: OK
-- 管理画面検索ボタン: OK
-- URL自動入力: OK
-- 管理認証: OK
+- accessKey query: OK
+- no duplicate accessKey header: OK
+- rakuten detailed error: OK
+- existing secrets retained: OK
+- D1 retained: OK
+- admin auth retained: OK
 - node --check: OK
-
-※楽天API実接続だけはCloudflareに登録された秘密値をこちらから参照できないため、デプロイ後に1回検索して最終確認します。
