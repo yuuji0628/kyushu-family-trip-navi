@@ -1630,12 +1630,12 @@ function adminPage() {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.4.1 / <span id="directDashVersion">direct loader</span></div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.5.0 / UI AUDIT OK / <span id="directDashVersion">direct loader</span></div>
       </div>
       <div class="heroActions">
-        <button id="dashAutoRunBtn" class="btn" type="button">今すぐ1記事作成</button>
+        <button id="dashAutoRunBtn" class="btn" type="button" onclick="autoHotelCreateDirect('dashAutoRunBtn')">今すぐ1記事作成</button>
         <button id="dashRefreshBtn" class="btn sub" type="button" onclick="dashboardLoadDirect();articleListLoadDirect()">↻ 更新</button>
-        <button id="logoutBtn" class="btn sub" type="button">ログアウト</button>
+        <button id="logoutBtn" class="btn sub" type="button" onclick="sessionStorage.removeItem('adminPassword');location.reload()">ログアウト</button>
       </div>
     </section>
 
@@ -1696,7 +1696,7 @@ function adminPage() {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.4.1</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.5.0</div>
       </form>
     </section>
 
@@ -1738,7 +1738,7 @@ function adminPage() {
       <div class="panel" style="margin:12px 0;background:#f7fbff">
         <h3 style="margin-top:0">🤖 九州ホテル完全自動化</h3>
         <p class="small">九州7県を順番に巡回し、楽天トラベルからファミリー向け候補を検索。評価・口コミを加味して未掲載ホテルを選び、楽天アフィリエイトURL付きの記事を自動公開します。</p>
-        <button id="autoHotelRunBtn" class="btn" type="button">今すぐ1記事を自動作成</button>
+        <button id="autoHotelRunBtn" class="btn" type="button" onclick="autoHotelCreateDirect('autoHotelRunBtn')">今すぐ1記事を自動作成</button>
         <div id="autoHotelStatus" class="small" style="margin-top:10px">状態を確認中...</div>
       </div>
       <div class="panel" style="margin:12px 0;background:#fbfffd">
@@ -1765,7 +1765,7 @@ function adminPage() {
         <div class="field"><label><input id="published" type="checkbox" checked> 公開</label></div>
         <div class="field"><label><input id="featured" type="checkbox"> おすすめ</label></div>
       </div>
-      <div class="btns"><button id="saveBtn" class="btn">保存</button><button id="newBtn" class="btn sub">新規入力</button></div>
+      <div class="btns"><button id="saveBtn" class="btn" type="button">保存</button><button id="newBtn" class="btn sub" type="button">新規入力</button></div>
       <div id="saveStatus" class="status">準備完了</div>
     </div>
       </div>
@@ -1773,7 +1773,7 @@ function adminPage() {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.4.1</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.5.0</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="articleListLoadDirect()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       <div id="articleList">読み込み中...</div>
@@ -1996,6 +1996,71 @@ async function articleEditDirect(id){
     }
   }catch(e){
     alert("記事編集の読み込みに失敗しました: "+(e&&e.message?e.message:"不明なエラー"));
+  }
+}
+
+
+async function autoHotelCreateDirect(buttonId){
+  var btn=document.getElementById(buttonId||"dashAutoRunBtn");
+  var topStatus=document.getElementById("dashAutoStatus");
+  var lowerStatus=document.getElementById("autoHotelStatus");
+  var pw=sessionStorage.getItem("adminPassword")||"";
+
+  if(btn){
+    btn.disabled=true;
+    btn.dataset.originalText=btn.textContent;
+    btn.textContent="作成中...";
+  }
+  if(topStatus) topStatus.textContent="九州のおすすめホテルを検索して記事を自動作成しています...";
+  if(lowerStatus) lowerStatus.textContent="九州のおすすめホテルを検索して記事を自動作成しています...";
+
+  try{
+    var controller=new AbortController();
+    var timer=setTimeout(function(){controller.abort();},45000);
+    var r;
+    try{
+      r=await fetch("/api/auto-hotel",{
+        method:"POST",
+        cache:"no-store",
+        signal:controller.signal,
+        headers:{"x-admin-password":pw}
+      });
+    }finally{
+      clearTimeout(timer);
+    }
+
+    var text=await r.text();
+    var d={};
+    try{d=text?JSON.parse(text):{};}catch(e){d={raw:text};}
+    if(!r.ok) throw new Error(d.error||d.raw||("HTTP "+r.status));
+
+    var msg=d.skipped
+      ? "今回はスキップ："+(d.reason||"候補なし")
+      : "自動作成完了 ✅ "+(d.hotelName||"");
+
+    if(topStatus){
+      topStatus.innerHTML=d.skipped
+        ? dashEsc(msg)
+        : dashEsc(msg)+' <a href="'+dashEsc(d.url||"#")+'" target="_blank">記事を見る</a>';
+    }
+    if(lowerStatus){
+      lowerStatus.innerHTML=d.skipped
+        ? dashEsc(msg)
+        : dashEsc(msg)+' <a href="'+dashEsc(d.url||"#")+'" target="_blank">記事を見る</a>';
+    }
+
+    if(typeof dashboardLoadDirect==="function") dashboardLoadDirect();
+    if(typeof articleListLoadDirect==="function") articleListLoadDirect();
+
+  }catch(e){
+    var msg="自動作成エラー："+(e&&e.name==="AbortError"?"45秒でタイムアウトしました":(e&&e.message?e.message:"不明なエラー"));
+    if(topStatus) topStatus.textContent=msg;
+    if(lowerStatus) lowerStatus.textContent=msg;
+  }finally{
+    if(btn){
+      btn.disabled=false;
+      btn.textContent=btn.dataset.originalText||"今すぐ1記事作成";
+    }
   }
 }
 
@@ -2414,19 +2479,19 @@ var directGithubZipFiles=[];
     btn.textContent="今すぐ1記事作成";
   }
 
-  $("dashAutoRunBtn").onclick=runAutoFromDashboard;
-  $("dashRefreshBtn").onclick=function(){ loadDashboard(); loadArticles(); };
-  $("jumpHotelSearch").onclick=function(){
+  if ($("dashAutoRunBtn")) $("dashAutoRunBtn").onclick=runAutoFromDashboard;
+  if ($("dashRefreshBtn")) $("dashRefreshBtn").onclick=function(){ loadDashboard(); loadArticles(); };
+  if ($("jumpHotelSearch")) $("jumpHotelSearch").onclick=function(){
     $("articleEditorSection").open=true;
     setTimeout(function(){ $("hotelSearchSection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
   };
-  $("jumpArticleEditor").onclick=function(){
+  if ($("jumpArticleEditor")) $("jumpArticleEditor").onclick=function(){
     $("articleEditorSection").open=true;
     setTimeout(function(){ $("articleEditorSection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
   };
-  $("jumpArticleList").onclick=function(){ $("articleListSection").scrollIntoView({behavior:"smooth",block:"start"}); };
-  $("jumpGithubZip").onclick=function(){ $("githubZipSection").scrollIntoView({behavior:"smooth",block:"start"}); };
-  $("newArticleTopBtn").onclick=function(){
+  if ($("jumpArticleList")) $("jumpArticleList").onclick=function(){ $("articleListSection").scrollIntoView({behavior:"smooth",block:"start"}); };
+  if ($("jumpGithubZip")) $("jumpGithubZip").onclick=function(){ $("githubZipSection").scrollIntoView({behavior:"smooth",block:"start"}); };
+  if ($("newArticleTopBtn")) $("newArticleTopBtn").onclick=function(){
     $("articleEditorSection").open=true;
     $("newBtn").click();
     setTimeout(function(){ $("articleEditorSection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
@@ -2461,33 +2526,24 @@ var directGithubZipFiles=[];
       seo:{metaDescription:$("metaDescription").value,keywords:$("keywords").value},
       date:$("date").value||undefined,published:$("published").checked,featured:$("featured").checked};
   }
-  $("saveBtn").onclick=async function(){
+  if ($("saveBtn")) $("saveBtn").onclick=async function(){
     var p=payload(); var method=p.id?"PUT":"POST"; $("saveStatus").textContent="保存中...";
     var r=await fetch("/api/articles",{method:method,headers:headers(),body:JSON.stringify(p)});
     var d=await r.json().catch(function(){return {};});
     if(!r.ok){$("saveStatus").textContent="保存失敗: HTTP "+r.status+" "+(d.error||"");return;}
     $("saveStatus").textContent="保存しました。公開サイトへ即時反映されます。"; clearForm(); loadArticles();
   };
-  $("newBtn").onclick=clearForm;
+  if ($("newBtn")) $("newBtn").onclick=clearForm;
   function clearForm(){ ["id","title","coverImage","coverAlt","excerpt","content","tags","ageGroups","practical","rakuten","jalan","yahoo","metaDescription","keywords"].forEach(function(x){$(x).value="";}); $("date").value=new Date().toISOString().slice(0,10); $("icon").value="🧳"; $("published").checked=true; $("featured").checked=false; updatePreview(); }
   function updatePreview(){var u=$("coverImage").value.trim();$("imagePreview").innerHTML=u?'<img src="'+u.replace(/"/g,"&quot;")+'" alt="プレビュー">':'画像URLを入れるとプレビューします';}
-  $("coverImage").addEventListener("input",updatePreview);
+  if ($("coverImage")) $("coverImage").addEventListener("input",updatePreview);
   async function deleteArticle(id){
     if(!confirm("この記事を削除しますか？")) return;
     var r=await fetch("/api/articles",{method:"DELETE",headers:headers(),body:JSON.stringify({id:id})});
     if(r.ok) loadArticles(); else alert("削除に失敗しました");
   }
-  $("premiumBtn").onclick=async function(){
-    if(!confirm("既存7記事の本文・タイトル・SEO等を高品質版へ更新します。実行しますか？")) return;
-    $("premiumStatus").textContent="更新中...";
-    var r=await fetch("/api/premium-articles",{method:"POST",headers:headers()});
-    var d=await r.json().catch(function(){return {};});
-    if(!r.ok){$("premiumStatus").textContent="更新失敗: HTTP "+r.status+" "+(d.error||"");return;}
-    $("premiumStatus").textContent="更新完了: "+d.updated+"/"+d.total+"件"+(d.missing&&d.missing.length?" / 見つからないID: "+d.missing.join(", "):"");
-    loadArticles();
-  };
-
-  $("rakutenSearchBtn").onclick=async function(){
+  // 旧品質アップデート用ハンドラを完全削除。
+  if ($("rakutenSearchBtn")) $("rakutenSearchBtn").onclick=async function(){
     var kw=$("rakutenKeyword").value.trim();
     if(kw.length<2){$("rakutenSearchStatus").textContent="ホテル名を2文字以上入力してください。";return;}
     $("rakutenSearchStatus").textContent="楽天トラベルを検索中...";
@@ -2548,7 +2604,7 @@ var directGithubZipFiles=[];
     }
   }
 
-  $("autoHotelRunBtn").onclick=async function(){
+  if ($("autoHotelRunBtn")) $("autoHotelRunBtn").onclick=async function(){
     $("autoHotelRunBtn").disabled=true;
     $("autoHotelStatus").textContent="九州のおすすめホテルを検索して記事を作成中...";
     try{
@@ -2573,7 +2629,7 @@ var directGithubZipFiles=[];
 
   // refreshAutoHotelStatus is called after login through the dashboard flow.
 
-  $("hotelArticleBtn").onclick=async function(){
+  if ($("hotelArticleBtn")) $("hotelArticleBtn").onclick=async function(){
     var h=window.__selectedRakutenHotel||{};
     var rakutenUrl=$("rakuten").value.trim();
     if(!h.hotelName||!rakutenUrl){
