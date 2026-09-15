@@ -206,12 +206,6 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .githubUploadMeta{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0;font-size:12px;color:var(--muted)}
 .progressTrack{height:9px;background:#e9f1ed;border-radius:999px;overflow:hidden;margin-top:12px}
 .progressBar{height:100%;width:0;background:#168861;transition:width .25s ease}
-.contentRow{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:16px 0;border-bottom:1px solid var(--soft)}
-.contentRow:last-child{border-bottom:0}.contentMain{min-width:0}.contentTitle{font-weight:900;font-size:15px;line-height:1.5}.contentMeta{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:7px;font-size:11px;color:var(--muted)}
-.miniBadge{display:inline-flex;padding:4px 8px;border-radius:999px;background:#f1f4f3;font-weight:800}.miniBadge.ok{background:#eaf7f1;color:#16714f}.miniBadge.affiliate{background:#fff5df;color:#8a6200}
-.contentActions{display:flex;gap:7px;flex-shrink:0}.contentActions .btn{padding:8px 11px;font-size:12px}
-.errorNotice{border-color:#efd0d0;background:#fff7f7}
-
 
 .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.small{font-size:13px;color:var(--muted)}.status{padding:10px 14px;border-radius:10px;background:var(--soft);margin:12px 0}.preview{margin-top:10px;border:1px dashed var(--line);border-radius:14px;min-height:90px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted)}.preview img{width:100%;max-height:260px;object-fit:cover}
 .notice{padding:14px 16px;border-radius:12px;background:#fff8d8;border:1px solid #f2e29d}
@@ -978,6 +972,144 @@ async function handleGithubStatus(request, env) {
   }, { status:r.ok ? 200 : 502 });
 }
 
+
+function readU16LE(bytes, offset) {
+  return bytes[offset] | (bytes[offset+1] << 8);
+}
+function readU32LE(bytes, offset) {
+  return (bytes[offset] | (bytes[offset+1] << 8) | (bytes[offset+2] << 16) | (bytes[offset+3] << 24)) >>> 0;
+}
+
+function parseStoredZip(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const decoder = new TextDecoder("utf-8");
+  const files = [];
+  let pos = 0;
+
+  while (pos + 30 <= bytes.length) {
+    const sig = readU32LE(bytes, pos);
+    if (sig === 0x04034b50) {
+      const flags = readU16LE(bytes, pos + 6);
+      const method = readU16LE(bytes, pos + 8);
+      const compSize = readU32LE(bytes, pos + 18);
+      const uncompSize = readU32LE(bytes, pos + 22);
+      const nameLen = readU16LE(bytes, pos + 26);
+      const extraLen = readU16LE(bytes, pos + 28);
+
+      if (flags & 0x08) throw new Error("データディスクリプタ形式のZIPは未対応です。");
+      if (method !== 0) throw new Error("このZIPは圧縮されています。管理画面用ZIPを使用してください。");
+
+      const nameStart = pos + 30;
+      const dataStart = nameStart + nameLen + extraLen;
+      const dataEnd = dataStart + compSize;
+      if (dataEnd > bytes.length) throw new Error("ZIPデータが壊れています。");
+
+      const name = decoder.decode(bytes.slice(nameStart, nameStart + nameLen));
+      if (!name.endsWith("/")) {
+        files.push({
+          name,
+          bytes: bytes.slice(dataStart, dataEnd),
+          uncompSize
+        });
+      }
+      pos = dataEnd;
+      continue;
+    }
+    if (sig === 0x02014b50 || sig === 0x06054b50) break;
+    pos++;
+  }
+
+  if (!files.length) throw new Error("ZIP内にファイルがありません。");
+  return files;
+}
+
+function topFolderPrefix(names) {
+  const clean = names.map(x => String(x || "").replace(/^\/+/, "")).filter(Boolean);
+  if (!clean.length) return "";
+  const first = clean[0].split("/")[0];
+  if (!first) return "";
+  return clean.every(p => p === first || p.startsWith(first + "/")) ? first + "/" : "";
+}
+
+function bytesToBase64Worker(bytes) {
+  let s = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    s += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunk, bytes.length)));
+  }
+  return btoa(s);
+}
+
+async function handleGithubZipForm(request, env) {
+  if (!requireAuth(request, env)) return unauthorized();
+  if (request.method !== "POST") return json({ error:"Method not allowed" }, { status:405 });
+  if (!env.GITHUB_TOKEN) return json({ error:"GITHUB_TOKEN が未設定です" }, { status:500 });
+
+  const form = await request.formData();
+  const file = form.get("zipfile");
+  if (!(file instanceof File)) return json({ error:"ZIPファイルを選択してください" }, { status:400 });
+
+  const buffer = await file.arrayBuffer();
+  if (buffer.byteLength > 8_000_000) return json({ error:"ZIPファイルが大きすぎます" }, { status:413 });
+
+  let entries;
+  try {
+    entries = parseStoredZip(buffer);
+  } catch (e) {
+    return json({ error:String(e?.message || e) }, { status:400 });
+  }
+
+  const names = entries.map(x => x.name).filter(n => !n.includes("__MACOSX/") && !n.endsWith(".DS_Store"));
+  const prefix = topFolderPrefix(names);
+
+  const results = [];
+  for (const entry of entries) {
+    if (entry.name.includes("__MACOSX/") || entry.name.endsWith(".DS_Store")) continue;
+    let path = prefix && entry.name.startsWith(prefix) ? entry.name.slice(prefix.length) : entry.name;
+    path = path.replace(/^\/+/, "");
+    if (!path || path.startsWith(".git/") || path.includes("..")) continue;
+
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const get = await githubRequest(env, "/contents/" + encodedPath + "?ref=" + encodeURIComponent(GITHUB_DEFAULT_BRANCH), { method:"GET" });
+
+    let sha = "";
+    if (get.ok) sha = String(get.data?.sha || "");
+    else if (get.status !== 404) {
+      results.push({ path, ok:false, error:get.data?.message || ("HTTP " + get.status) });
+      continue;
+    }
+
+    const payload = {
+      message:"Admin ZIP deploy: " + path,
+      content:bytesToBase64Worker(entry.bytes),
+      branch:GITHUB_DEFAULT_BRANCH
+    };
+    if (sha) payload.sha = sha;
+
+    const put = await githubRequest(env, "/contents/" + encodedPath, {
+      method:"PUT",
+      headers:{ "content-type":"application/json" },
+      body:JSON.stringify(payload)
+    });
+
+    results.push({
+      path,
+      ok:put.ok,
+      error:put.ok ? "" : (put.data?.message || ("HTTP " + put.status))
+    });
+  }
+
+  const success = results.filter(x => x.ok).length;
+  const failed = results.filter(x => !x.ok);
+
+  return json({
+    ok:failed.length === 0,
+    success,
+    failed:failed.length,
+    results
+  }, { status:failed.length === 0 ? 200 : 207 });
+}
+
 async function handleGithubFileUpload(request, env) {
   if (!requireAuth(request, env)) return unauthorized();
   if (request.method !== "POST") return json({ error:"Method not allowed" }, { status:405 });
@@ -1442,11 +1574,11 @@ function adminPage() {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.2.5 / <span id="directDashVersion">direct loader</span></div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.2.8 / <span id="directDashVersion">direct loader</span></div>
       </div>
       <div class="heroActions">
         <button id="dashAutoRunBtn" class="btn" type="button">今すぐ1記事作成</button>
-        <button id="dashRefreshBtn" class="btn sub" type="button" onclick="dashboardLoadDirect();articleListLoadDirect()">↻ 更新</button>
+        <button id="dashRefreshBtn" class="btn sub" type="button" onclick="dashboardLoadDirect()">↻ 更新</button>
         <button id="logoutBtn" class="btn sub" type="button">ログアウト</button>
       </div>
     </section>
@@ -1488,24 +1620,24 @@ function adminPage() {
     <section id="githubZipSection" class="smartCard">
       <div class="smartCardHead">
         <div><div class="eyebrow">GITHUB DEPLOY</div><h2>📦 ZIPからGitHubへ反映</h2></div>
-        <span id="githubStatusBadge" class="statusBadge">確認中</span>
+        <span id="githubStatusBadge" class="statusBadge">接続済み</span>
       </div>
-      <p class="sectionHint">ZIPを選ぶだけで中身を展開し、先頭フォルダを自動で外してGitHubへ反映します。</p>
-      <div class="githubUploadBox">
-        <input id="githubZipInput" type="file" accept=".zip,application/zip" class="input" onchange="githubZipSelectDirect(this)">
+      <p class="sectionHint">JavaScriptを使わず、通常のフォーム送信でZIPをGitHubへ反映します。</p>
+
+      <form id="githubZipForm" class="githubUploadBox" enctype="multipart/form-data" onsubmit="return githubZipFormSubmit(event)">
+        <input id="githubZipInput" name="zipfile" type="file" accept=".zip,application/zip" class="input" required>
         <div class="githubUploadMeta">
           <span>対象: <b>yuuji0628/kyushu-family-trip-navi</b></span>
           <span>ブランチ: <b>main</b></span>
         </div>
-        <div id="githubZipPreview" class="small">ZIPを選択してください。</div>
+        <div class="smartNotice">ChatGPTから受け取った「管理画面用ZIP」をそのまま選択してください。先頭フォルダは自動で外します。</div>
         <div class="miniActions">
-          <button id="githubZipUploadBtn" class="btn" type="button" onclick="githubZipUploadDirect()" disabled>GitHubへ反映する</button>
+          <button id="githubZipUploadBtn" class="btn" type="submit">GitHubへ反映する</button>
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.2.6 / direct ZIP</div>
-        <div class="progressTrack"><div id="githubProgressBar" class="progressBar"></div></div>
-      </div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.2.8 / FORM MODE</div>
+      </form>
     </section>
 
     <section class="smartCard">
@@ -1592,11 +1724,8 @@ function adminPage() {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.2.7</div></div>
-        <div class="miniActions" style="margin-top:0">
-          <button class="btn sub" type="button" onclick="articleListLoadDirect()">↻ 再読み込み</button>
-          <button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button>
-        </div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2></div>
+        <button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button>
       </div>
       <div id="articleList">読み込み中...</div>
     </section>
@@ -1614,79 +1743,6 @@ function dashFmtDate(v){
     return new Intl.DateTimeFormat("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(v));
   }catch(e){return String(v);}
 }
-
-async function articleListLoadDirect(){
-  var box=document.getElementById("articleList");
-  if(!box) return;
-
-  box.innerHTML='<div class="smartNotice">記事一覧を読み込み中...</div>';
-
-  var pw=sessionStorage.getItem("adminPassword")||"";
-  var controller=new AbortController();
-  var timer=setTimeout(function(){controller.abort();},10000);
-
-  try{
-    var r=await fetch("/api/articles?admin=1",{
-      cache:"no-store",
-      signal:controller.signal,
-      headers:{"x-admin-password":pw}
-    });
-    var text=await r.text();
-    var data;
-    try{ data=text?JSON.parse(text):[]; }catch(e){ data=[]; }
-
-    if(!r.ok){
-      throw new Error("HTTP "+r.status+" / "+(data&&data.error?data.error:text||"取得失敗"));
-    }
-
-    var rows=Array.isArray(data)?data:(Array.isArray(data.articles)?data.articles:[]);
-    if(!rows.length){
-      box.innerHTML='<div class="smartNotice">記事はまだありません。</div>';
-      return;
-    }
-
-    box.innerHTML=rows.map(function(a){
-      var published=Number(a.published||0)===1;
-      var affiliate=!!(a.affiliateRakuten || (a.affiliate&&a.affiliate.rakuten));
-      var date=a.updatedAt||a.date||"";
-      return '<div class="contentRow">'+
-        '<div class="contentMain">'+
-          '<div class="contentTitle">'+dashEsc(a.title||"無題")+'</div>'+
-          '<div class="contentMeta">'+
-            (published?'<span class="miniBadge ok">公開</span>':'<span class="miniBadge">下書き</span>')+
-            (affiliate?'<span class="miniBadge affiliate">楽天リンクあり</span>':'')+
-            (date?'<span>'+dashEsc(date)+'</span>':'')+
-          '</div>'+
-        '</div>'+
-        '<div class="contentActions">'+
-          '<a class="btn sub" target="_blank" href="/article.html?id='+encodeURIComponent(a.id||'')+'">表示</a>'+
-          '<button class="btn sub" type="button" onclick="openArticleEditorDirect('+JSON.stringify(String(a.id||''))+')">編集</button>'+
-        '</div>'+
-      '</div>';
-    }).join("");
-
-  }catch(e){
-    box.innerHTML='<div class="smartNotice errorNotice">記事一覧取得エラー：'+
-      dashEsc(e&&e.name==="AbortError"?"10秒でタイムアウトしました":(e&&e.message?e.message:"不明なエラー"))+
-      '<br><button class="btn sub" type="button" onclick="articleListLoadDirect()" style="margin-top:10px">再読み込み</button></div>';
-  }finally{
-    clearTimeout(timer);
-  }
-}
-
-function openArticleEditorDirect(id){
-  try{
-    var details=document.getElementById("articleEditorSection");
-    if(details) details.open=true;
-    var select=document.getElementById("articleSelect");
-    if(select){
-      select.value=id;
-      select.dispatchEvent(new Event("change",{bubbles:true}));
-    }
-    if(details) setTimeout(function(){details.scrollIntoView({behavior:"smooth",block:"start"});},50);
-  }catch(e){}
-}
-
 async function dashboardLoadDirect(){
   var pw=sessionStorage.getItem("adminPassword")||"";
   var articleEl=document.getElementById("statArticles");
@@ -1786,7 +1842,6 @@ async function adminLoginDirect(){
       adminApp.style.display="block";
       status.textContent="ログイン成功";
       dashboardLoadDirect();
-      articleListLoadDirect();
       window.dispatchEvent(new CustomEvent("admin-direct-login",{detail:{password:pw}}));
     }else{
       status.textContent="パスワードが違います。（HTTP "+r.status+"）";
@@ -1801,7 +1856,6 @@ document.addEventListener("DOMContentLoaded",function(){
   setTimeout(function(){
     if(sessionStorage.getItem("adminPassword") && document.getElementById("adminApp") && document.getElementById("adminApp").style.display!=="none"){
       dashboardLoadDirect();
-      articleListLoadDirect();
     }
   },800);
   var input=document.getElementById("pw");
@@ -1813,6 +1867,56 @@ document.addEventListener("DOMContentLoaded",function(){
 });
 </script>
 <script>
+
+async function githubZipFormSubmit(ev){
+  ev.preventDefault();
+  var form=document.getElementById("githubZipForm");
+  var input=document.getElementById("githubZipInput");
+  var btn=document.getElementById("githubZipUploadBtn");
+  var status=document.getElementById("githubUploadStatus");
+  if(!input || !input.files || !input.files[0]){
+    status.textContent="ZIPを選択してください。";
+    return false;
+  }
+
+  if(!confirm(input.files[0].name+" をGitHubへ反映します。よろしいですか？")) return false;
+
+  btn.disabled=true;
+  status.textContent="GitHubへ反映中...";
+
+  try{
+    var fd=new FormData();
+    fd.append("zipfile",input.files[0],input.files[0].name);
+
+    var pw=sessionStorage.getItem("adminPassword")||"";
+    var r=await fetch("/api/github-zip-form",{
+      method:"POST",
+      headers:{"x-admin-password":pw},
+      body:fd
+    });
+
+    var text=await r.text();
+    var d={};
+    try{d=text?JSON.parse(text):{};}catch(e){d={raw:text};}
+
+    if(r.ok || r.status===207){
+      if(d.failed===0){
+        status.innerHTML="<b>GitHub反映完了 ✅</b><br>"+d.success+"ファイルを更新しました。";
+      }else{
+        status.innerHTML="<b>一部失敗</b><br>成功 "+d.success+" / 失敗 "+d.failed+
+          "<br>"+dashEsc((d.results||[]).filter(function(x){return !x.ok;}).slice(0,5).map(function(x){return x.path+": "+x.error;}).join(" / "));
+      }
+    }else{
+      status.textContent="反映失敗: HTTP "+r.status+" / "+(d.error||d.raw||"不明なエラー");
+    }
+  }catch(e){
+    status.textContent="通信エラー: "+(e&&e.message?e.message:"不明なエラー");
+  }finally{
+    btn.disabled=false;
+  }
+  return false;
+}
+
 async function githubCheckDirect(){
   var badge=document.getElementById("githubStatusBadge");
   var status=document.getElementById("githubUploadStatus");
@@ -1863,172 +1967,17 @@ async function githubCheckDirect(){
 <script>
 var directGithubZipFiles=[];
 
-function githubCommonTopFolder(paths){
-  var clean=paths.filter(Boolean).map(function(p){return p.replace(/^\/+/,"");});
-  if(!clean.length) return "";
-  var first=clean[0].split("/")[0];
-  if(!first) return "";
-  return clean.every(function(p){return p===first || p.startsWith(first+"/");}) ? first+"/" : "";
-}
 
-function githubBytesToBase64(bytes){
-  var binary="", chunk=0x8000;
-  for(var i=0;i<bytes.length;i+=chunk){
-    binary+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+chunk,bytes.length)));
-  }
-  return btoa(binary);
-}
 
-async function githubInflateRaw(bytes){
-  if(typeof DecompressionStream==="undefined"){
-    throw new Error("このSafariではZIP展開機能が使えません。iOSを最新版にしてください。");
-  }
-  var ds=new DecompressionStream("deflate-raw");
-  var stream=new Blob([bytes]).stream().pipeThrough(ds);
-  var buf=await new Response(stream).arrayBuffer();
-  return new Uint8Array(buf);
-}
 
-async function githubParseZip(file){
-  var buf=await file.arrayBuffer();
-  var view=new DataView(buf);
-  var bytes=new Uint8Array(buf);
-  var decoder=new TextDecoder("utf-8");
-  var pos=0, entries=[];
 
-  while(pos+30<=view.byteLength){
-    var sig=view.getUint32(pos,true);
-    if(sig===0x04034b50){
-      var flags=view.getUint16(pos+6,true);
-      var method=view.getUint16(pos+8,true);
-      var compSize=view.getUint32(pos+18,true);
-      var uncompSize=view.getUint32(pos+22,true);
-      var nameLen=view.getUint16(pos+26,true);
-      var extraLen=view.getUint16(pos+28,true);
 
-      if(flags & 0x08) throw new Error("このZIP形式は未対応です。ChatGPTから受け取ったZIPをそのまま選択してください。");
 
-      var nameStart=pos+30;
-      var dataStart=nameStart+nameLen+extraLen;
-      if(dataStart+compSize>view.byteLength) throw new Error("ZIPデータが壊れています。");
 
-      var name=decoder.decode(bytes.slice(nameStart,nameStart+nameLen));
-      var compressed=bytes.slice(dataStart,dataStart+compSize);
-      var output;
-      if(method===0) output=compressed;
-      else if(method===8) output=await githubInflateRaw(compressed);
-      else throw new Error("未対応の圧縮方式です: "+method);
 
-      if(uncompSize && output.length!==uncompSize) throw new Error("ZIP展開サイズ不一致: "+name);
-      if(!name.endsWith("/")) entries.push({name:name,bytes:output});
-      pos=dataStart+compSize;
-      continue;
-    }
-    if(sig===0x02014b50 || sig===0x06054b50) break;
-    pos++;
-  }
-  if(!entries.length) throw new Error("ZIP内にファイルが見つかりません。");
-  return entries;
-}
 
-async function githubZipSelectDirect(input){
-  var preview=document.getElementById("githubZipPreview");
-  var btn=document.getElementById("githubZipUploadBtn");
-  var bar=document.getElementById("githubProgressBar");
-  directGithubZipFiles=[];
-  if(btn) btn.disabled=true;
-  if(bar) bar.style.width="0%";
 
-  var file=input && input.files && input.files[0];
-  if(!file){
-    if(preview) preview.textContent="ZIPを選択してください。";
-    return;
-  }
-  if(preview) preview.textContent="ZIPを解析中...";
 
-  try{
-    var entries=await githubParseZip(file);
-    var paths=entries.map(function(e){return e.name;}).filter(function(k){
-      return !k.includes("__MACOSX/") && !k.endsWith(".DS_Store");
-    });
-    var root=githubCommonTopFolder(paths);
-
-    directGithubZipFiles=entries.map(function(entry){
-      var path=(root && entry.name.startsWith(root)) ? entry.name.slice(root.length) : entry.name;
-      return {path:path,bytes:entry.bytes};
-    }).filter(function(x){
-      return x.path && !x.path.startsWith(".git/") && !x.path.includes("__MACOSX/") && !x.path.endsWith(".DS_Store");
-    });
-
-    if(preview){
-      preview.innerHTML="<b>"+dashEsc(file.name)+"</b> / "+directGithubZipFiles.length+"ファイル"+
-        (root?" / 先頭フォルダ「"+dashEsc(root.slice(0,-1))+"」を自動で外します。":"");
-    }
-    if(btn) btn.disabled=directGithubZipFiles.length===0;
-  }catch(e){
-    if(preview) preview.textContent="ZIP解析エラー: "+(e&&e.message?e.message:"不明なエラー");
-    if(btn) btn.disabled=true;
-  }
-}
-
-async function githubZipUploadDirect(){
-  var btn=document.getElementById("githubZipUploadBtn");
-  var status=document.getElementById("githubUploadStatus");
-  var bar=document.getElementById("githubProgressBar");
-  if(!directGithubZipFiles.length){
-    if(status) status.textContent="先にZIPを選択してください。";
-    return;
-  }
-  if(!confirm("ZIP内の"+directGithubZipFiles.length+"ファイルをGitHubへ反映します。よろしいですか？")) return;
-
-  if(btn) btn.disabled=true;
-  var pw=sessionStorage.getItem("adminPassword")||"";
-  var ok=0, failed=0, failures=[];
-
-  for(var i=0;i<directGithubZipFiles.length;i++){
-    var f=directGithubZipFiles[i];
-    if(status) status.textContent="反映中 "+(i+1)+"/"+directGithubZipFiles.length+"："+f.path;
-    if(bar) bar.style.width=Math.round((i/directGithubZipFiles.length)*100)+"%";
-    try{
-      var r=await fetch("/api/github-file",{
-        method:"POST",
-        cache:"no-store",
-        headers:{
-          "content-type":"application/json",
-          "x-admin-password":pw
-        },
-        body:JSON.stringify({
-          path:f.path,
-          contentBase64:githubBytesToBase64(f.bytes),
-          branch:"main",
-          message:"Admin ZIP deploy: "+f.path
-        })
-      });
-      var text=await r.text();
-      var d={};
-      try{d=text?JSON.parse(text):{};}catch(e){d={raw:text};}
-      if(!r.ok){
-        failed++;
-        failures.push(f.path+" ("+(d.details||d.error||d.raw||("HTTP "+r.status))+")");
-      }else{
-        ok++;
-      }
-    }catch(e){
-      failed++;
-      failures.push(f.path+" ("+(e&&e.message?e.message:"通信エラー")+")");
-    }
-  }
-
-  if(bar) bar.style.width="100%";
-  if(status){
-    if(failed===0){
-      status.innerHTML="<b>GitHub反映完了 ✅</b><br>"+ok+"ファイルを更新しました。Cloudflareの自動デプロイを確認してください。";
-    }else{
-      status.innerHTML="<b>一部失敗</b><br>成功 "+ok+" / 失敗 "+failed+"<br>"+dashEsc(failures.slice(0,5).join(" / "));
-    }
-  }
-  if(btn) btn.disabled=false;
-}
 </script>
 <script>
 (function(){
@@ -2524,6 +2473,7 @@ export default {
       if (url.pathname === "/api/admin-dashboard") return await handleAdminDashboard(request, env);
       if (url.pathname === "/api/github-status") return await handleGithubStatus(request, env);
       if (url.pathname === "/api/github-file") return await handleGithubFileUpload(request, env);
+      if (url.pathname === "/api/github-zip-form") return await handleGithubZipForm(request, env);
       if (url.pathname === "/api/premium-articles") return await upgradePremiumArticles(request, env);
       if (url.pathname === "/__diag") {
         if (!env.DB) return json({ ok: false, error: "D1 binding DB is not configured" }, { status: 500 });
