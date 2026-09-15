@@ -1473,9 +1473,10 @@ function adminPage() {
         <div id="githubZipPreview" class="small">ZIPを選択してください。</div>
         <div class="miniActions">
           <button id="githubZipUploadBtn" class="btn" type="button" disabled>GitHubへ反映する</button>
-          <button id="githubCheckBtn" class="btn sub" type="button">接続確認</button>
+          <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.2.3</div>
         <div class="progressTrack"><div id="githubProgressBar" class="progressBar"></div></div>
       </div>
     </section>
@@ -1608,6 +1609,46 @@ document.addEventListener("DOMContentLoaded",function(){
 });
 </script>
 <script>
+async function githubCheckDirect(){
+  var badge=document.getElementById("githubStatusBadge");
+  var status=document.getElementById("githubUploadStatus");
+  var btn=document.getElementById("githubCheckBtn");
+  if(!badge||!status||!btn) return;
+
+  var pw=sessionStorage.getItem("adminPassword")||"";
+  badge.className="statusBadge";
+  badge.textContent="確認中";
+  status.textContent="GitHubへ接続確認中...";
+  btn.disabled=true;
+
+  try{
+    var r=await fetch("/api/github-status",{
+      cache:"no-store",
+      headers:{"x-admin-password":pw}
+    });
+    var text=await r.text();
+    var d={};
+    try{ d=text?JSON.parse(text):{}; }catch(e){ d={raw:text}; }
+
+    if(r.ok && d.ok){
+      badge.className="statusBadge";
+      badge.textContent="接続済み";
+      status.textContent="GitHub接続OK："+(d.repositoryName||d.repository||"yuuji0628/kyushu-family-trip-navi");
+    }else{
+      badge.className="statusBadge error";
+      badge.textContent=d.configured===false?"TOKEN未設定":"接続エラー";
+      status.textContent="HTTP "+r.status+" / "+(d.error||d.details||d.raw||"GitHub接続に失敗しました");
+    }
+  }catch(e){
+    badge.className="statusBadge error";
+    badge.textContent="通信エラー";
+    status.textContent="接続確認エラー: "+(e&&e.message?e.message:"不明なエラー");
+  }finally{
+    btn.disabled=false;
+  }
+}
+</script>
+<script>
 (function(){
   var password = sessionStorage.getItem("adminPassword") || "";
   var $ = function(id){ return document.getElementById(id); };
@@ -1624,8 +1665,7 @@ document.addEventListener("DOMContentLoaded",function(){
         $("adminApp").style.display="block";
         loadArticles();
         loadDashboard();
-        checkGithubConnection();
-      }else{
+          }else{
         sessionStorage.removeItem("adminPassword");
         password="";
       }
@@ -1826,7 +1866,6 @@ document.addEventListener("DOMContentLoaded",function(){
     $("githubZipUploadBtn").disabled=false;
   };
 
-  $("githubCheckBtn").onclick=checkGithubConnection;
 
   function fmtDateTime(v){
     if(!v) return "未実行";
