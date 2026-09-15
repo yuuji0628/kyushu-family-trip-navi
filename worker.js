@@ -176,14 +176,37 @@ a{color:inherit}.wrap{max-width:1080px;margin:auto;padding:0 20px}.header{positi
 .article{max-width:820px;margin:auto;padding:48px 20px}.article h1{font-size:clamp(34px,6vw,56px);line-height:1.25}.article .heroimg{border-radius:24px;overflow:hidden;background:linear-gradient(135deg,#e7f7f1,#fff2cf);min-height:320px;display:flex;align-items:center;justify-content:center;font-size:92px}.article .heroimg img{width:100%;max-height:520px;object-fit:cover}.articleBody{font-size:18px}.articleBody h2{margin-top:38px}.affiliate{margin:36px 0;padding:24px;border:1px solid var(--line);border-radius:18px;background:#fbfffd}.affiliate a{display:inline-block;margin:6px 8px 6px 0;padding:10px 14px;border-radius:10px;background:var(--green);color:#fff;text-decoration:none;font-weight:750}
 .footer{background:#16352c;color:#fff;padding:44px 0;margin-top:60px}.footer a{color:#fff}
 .filterbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}.filterbar a{padding:8px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none}.searchbar{display:flex;gap:10px;margin:0 0 22px}.searchbar input{flex:1}
-.login{max-width:520px;margin:70px auto;padding:28px;border:1px solid var(--line);border-radius:22px}.input,textarea,select{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff}.field{margin:14px 0}.admin{max-width:1000px;margin:40px auto;padding:0 20px}.panel{border:1px solid var(--line);border-radius:20px;padding:24px;margin:20px 0}.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.small{font-size:13px;color:var(--muted)}.status{padding:10px 14px;border-radius:10px;background:var(--soft);margin:12px 0}.preview{margin-top:10px;border:1px dashed var(--line);border-radius:14px;min-height:90px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted)}.preview img{width:100%;max-height:260px;object-fit:cover}
+.login{max-width:520px;margin:70px auto;padding:28px;border:1px solid var(--line);border-radius:22px}.input,textarea,select{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff}.field{margin:14px 0}.admin{max-width:1000px;margin:40px auto;padding:0 20px}.panel{border:1px solid var(--line);border-radius:20px;padding:24px;margin:20px 0}
+.admin{max-width:1120px;margin:0 auto;padding:28px 20px 70px}
+.adminHero{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:28px;border-radius:26px;background:linear-gradient(135deg,#113e32,#168861);color:#fff;box-shadow:var(--shadow);margin:18px 0 20px}
+.adminHero h1{margin:4px 0 8px;font-size:clamp(27px,5vw,42px);line-height:1.15}.adminHero p{margin:0;color:rgba(255,255,255,.82)}
+.adminHero .eyebrow{color:#bde8d8}.adminHero .btn{background:#fff;color:#153b31;border-color:#fff}.adminHero .btn.sub{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.35)}
+.heroActions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.statGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}
+.statCard{border:1px solid var(--line);background:#fff;border-radius:20px;padding:18px;box-shadow:0 8px 24px rgba(20,67,53,.05)}
+.statCard span{display:block;color:var(--muted);font-size:12px;font-weight:800}.statCard strong{display:inline-block;font-size:30px;line-height:1.2;margin:8px 4px 2px 0}.statCard small{color:var(--muted)}
+.adminGrid2{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;margin:16px 0}
+.smartCard{border:1px solid var(--line);background:#fff;border-radius:22px;padding:22px;box-shadow:0 8px 24px rgba(20,67,53,.05);margin:16px 0}
+.smartCardHead{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:14px}.smartCardHead h2{margin:2px 0;font-size:21px}
+.statusBadge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:900;background:#eef7f3;color:var(--green2);white-space:nowrap}
+.statusBadge.error{background:#fff0f0;color:#a43b3b}.statusBadge.skip{background:#fff8df;color:#8a6a00}
+.timelineBox{border-radius:16px;background:var(--soft);padding:15px;font-size:14px}
+.quickGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quickBtn{border:1px solid var(--line);background:#fbfdfc;border-radius:16px;padding:16px;text-align:left;color:var(--ink);cursor:pointer;font-size:22px}.quickBtn:hover{background:var(--soft)}.quickBtn b,.quickBtn span{display:block}.quickBtn b{font-size:14px;margin-top:5px}.quickBtn span{font-size:11px;color:var(--muted);margin-top:2px}
+.miniActions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.miniActions .btn{padding:10px 14px;font-size:13px}
+.activityList{display:grid;gap:8px}.activityItem{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border-bottom:1px solid var(--soft);padding:10px 0}.activityDot{width:10px;height:10px;border-radius:50%;background:#168861}.activityDot.error{background:#c94a4a}.activityDot.skip{background:#c59a19}.activityTitle{font-weight:850;font-size:14px}.activityMeta{font-size:11px;color:var(--muted)}.activityState{font-size:11px;font-weight:850}
+.adminSection{scroll-margin-top:100px}.sectionTitleRow{display:flex;align-items:center;justify-content:space-between;gap:12px}.sectionTitleRow h2{margin:0}.sectionHint{font-size:12px;color:var(--muted)}
+details.adminFold{border:1px solid var(--line);border-radius:22px;background:#fff;margin:16px 0;box-shadow:0 8px 24px rgba(20,67,53,.04);overflow:hidden}
+details.adminFold>summary{list-style:none;cursor:pointer;padding:19px 22px;font-weight:900;display:flex;justify-content:space-between;align-items:center;gap:14px}details.adminFold>summary::-webkit-details-marker{display:none}
+details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}details.adminFold[open]>summary:after{content:"−"}details.adminFold>.foldBody{border-top:1px solid var(--soft);padding:4px 22px 22px}
+.smartNotice{padding:12px 14px;border:1px solid #cfe4db;background:#f4fbf8;border-radius:14px;font-size:13px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.small{font-size:13px;color:var(--muted)}.status{padding:10px 14px;border-radius:10px;background:var(--soft);margin:12px 0}.preview{margin-top:10px;border:1px dashed var(--line);border-radius:14px;min-height:90px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted)}.preview img{width:100%;max-height:260px;object-fit:cover}
 .notice{padding:14px 16px;border-radius:12px;background:#fff8d8;border:1px solid #f2e29d}
 .rakutenResultCard{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 0;border-bottom:1px solid var(--line)}
 .rakutenResultImg{width:96px;height:72px;object-fit:cover;border-radius:12px}
 .rakutenResultInfo{min-width:0}.rakutenHotelName{display:block;font-size:17px;line-height:1.5;word-break:normal;overflow-wrap:anywhere}
 .affiliateTop{background:linear-gradient(135deg,#fff8ef,#fbfffd);border-width:2px}.affiliateTop b{display:block;font-size:20px;margin:4px 0 8px}
 .affiliateTop a{font-size:16px;padding:13px 18px}
-@media(max-width:800px){.nav{display:none}.menuBtn{display:block}.grid{grid-template-columns:1fr}.areaGrid{grid-template-columns:repeat(2,1fr)}.hero{padding:48px 0}.heroGrid{grid-template-columns:1fr}.heroPanel{display:none}.section{padding:46px 0}.row{grid-template-columns:1fr}.sectionHead{align-items:start}.brand{font-size:20px}.searchbar{display:grid;grid-template-columns:1fr auto}.rakutenResultCard{grid-template-columns:82px minmax(0,1fr);align-items:start}.rakutenResultImg{width:82px;height:68px}.rakutenResultCard .rakutenUseBtn{grid-column:1/-1;width:100%;margin-top:2px}.rakutenHotelName{font-size:16px}.admin{padding:0 14px}.panel{padding:18px}.affiliateTop a{display:block;text-align:center;margin-right:0}}
+@media(max-width:800px){.nav{display:none}.menuBtn{display:block}.grid{grid-template-columns:1fr}.areaGrid{grid-template-columns:repeat(2,1fr)}.hero{padding:48px 0}.heroGrid{grid-template-columns:1fr}.heroPanel{display:none}.section{padding:46px 0}.row{grid-template-columns:1fr}.sectionHead{align-items:start}.brand{font-size:20px}.searchbar{display:grid;grid-template-columns:1fr auto}.rakutenResultCard{grid-template-columns:82px minmax(0,1fr);align-items:start}.rakutenResultImg{width:82px;height:68px}.rakutenResultCard .rakutenUseBtn{grid-column:1/-1;width:100%;margin-top:2px}.rakutenHotelName{font-size:16px}.admin{padding:0 14px}.panel{padding:18px}.affiliateTop a{display:block;text-align:center;margin-right:0}.adminHero{display:block;padding:22px}.heroActions{justify-content:flex-start;margin-top:16px}.statGrid{grid-template-columns:1fr 1fr}.adminGrid2{grid-template-columns:1fr}.quickGrid{grid-template-columns:1fr 1fr}.smartCard{padding:18px}.activityItem{grid-template-columns:auto 1fr}.activityState{grid-column:2}.admin{padding:14px 12px 60px}}
 </style>
 </head><body>
 <header class="header"><div class="wrap headerin">
@@ -840,6 +863,70 @@ async function autoCreateKyushuHotelArticle(env, options = {}) {
   };
 }
 
+
+async function handleAdminDashboard(request, env) {
+  if (!requireAuth(request, env)) return unauthorized();
+  if (!env.DB) return json({ error:"D1 binding DB is not configured" }, { status:500 });
+
+  await ensureAutoHotelLogTable(env.DB);
+
+  const articleStats = await env.DB.prepare(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN published = 1 THEN 1 ELSE 0 END) AS published,
+      SUM(CASE WHEN published = 0 THEN 1 ELSE 0 END) AS drafts,
+      SUM(CASE WHEN affiliateRakuten IS NOT NULL AND affiliateRakuten <> '' THEN 1 ELSE 0 END) AS affiliateCount
+    FROM articles
+  `).first();
+
+  const runStats = await env.DB.prepare(`
+    SELECT
+      COUNT(*) AS totalRuns,
+      SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successRuns,
+      SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS errorRuns,
+      SUM(CASE WHEN status = 'skip' THEN 1 ELSE 0 END) AS skipRuns
+    FROM auto_hotel_runs
+  `).first();
+
+  const recentResult = await env.DB.prepare(`
+    SELECT id, runAt, status, prefecture, keyword, hotelNo, hotelName, articleId, message
+    FROM auto_hotel_runs
+    ORDER BY id DESC
+    LIMIT 8
+  `).all();
+
+  const last = recentResult.results?.[0] || null;
+
+  return json({
+    ok:true,
+    articles:{
+      total:Number(articleStats?.total || 0),
+      published:Number(articleStats?.published || 0),
+      drafts:Number(articleStats?.drafts || 0),
+      affiliateCount:Number(articleStats?.affiliateCount || 0)
+    },
+    automation:{
+      totalRuns:Number(runStats?.totalRuns || 0),
+      successRuns:Number(runStats?.successRuns || 0),
+      errorRuns:Number(runStats?.errorRuns || 0),
+      skipRuns:Number(runStats?.skipRuns || 0),
+      last,
+      recent:recentResult.results || []
+    },
+    integrations:{
+      rakutenApplicationId:!!env.RAKUTEN_APPLICATION_ID,
+      rakutenAccessKey:!!env.RAKUTEN_ACCESS_KEY,
+      rakutenAffiliateId:!!env.RAKUTEN_AFFILIATE_ID,
+      d1:!!env.DB
+    },
+    schedule:{
+      label:"毎朝 6:10",
+      timezone:"JST",
+      cron:"10 21 * * *"
+    }
+  });
+}
+
 async function handleAutoHotelApi(request, env) {
   if (!requireAuth(request, env)) return unauthorized();
 
@@ -1145,16 +1232,76 @@ function adminPage() {
     <div id="loginStatus" class="small"></div>
   </div>
   <main id="adminApp" class="admin" style="display:none">
-    <h1>管理画面</h1>
-    <div class="panel"><b>接続・運用状況</b><p>保存先：Cloudflare Workers / D1</p><p>認証状態：ログイン済み</p><button id="logoutBtn" class="btn sub">ログアウト</button></div>
-    <div class="panel">
+    <section class="adminHero">
+      <div>
+        <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
+        <h1>🤖 自動運用ダッシュボード</h1>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p>
+      </div>
+      <div class="heroActions">
+        <button id="dashAutoRunBtn" class="btn" type="button">今すぐ1記事作成</button>
+        <button id="dashRefreshBtn" class="btn sub" type="button">↻ 更新</button>
+        <button id="logoutBtn" class="btn sub" type="button">ログアウト</button>
+      </div>
+    </section>
+
+    <section class="statGrid">
+      <div class="statCard"><span>公開記事</span><strong id="statArticles">--</strong><small>件</small></div>
+      <div class="statCard"><span>楽天リンク付き</span><strong id="statAffiliate">--</strong><small>件</small></div>
+      <div class="statCard"><span>自動作成成功</span><strong id="statAutoSuccess">--</strong><small>件</small></div>
+      <div class="statCard"><span>次回自動実行</span><strong style="font-size:22px">6:10</strong><small>毎朝 JST</small></div>
+    </section>
+
+    <section class="adminGrid2">
+      <div class="smartCard">
+        <div class="smartCardHead">
+          <div><div class="eyebrow">AUTOMATION</div><h2>自動作成ステータス</h2></div>
+          <span id="autoStatusBadge" class="statusBadge">確認中</span>
+        </div>
+        <div id="dashAutoStatus" class="timelineBox">状態を取得しています...</div>
+        <div class="miniActions">
+          <a class="btn sub" href="/" target="_blank">公開サイト</a>
+          <a class="btn sub" href="/articles.html" target="_blank">記事一覧</a>
+          <a class="btn sub" href="/sitemap.xml" target="_blank">サイトマップ</a>
+        </div>
+      </div>
+
+      <div class="smartCard">
+        <div class="smartCardHead"><div><div class="eyebrow">QUICK ACTIONS</div><h2>クイック操作</h2></div></div>
+        <div class="quickGrid">
+          <button id="jumpHotelSearch" class="quickBtn" type="button">🏨<b>ホテル検索</b><span>楽天から手動検索</span></button>
+          <button id="jumpArticleEditor" class="quickBtn" type="button">✍️<b>記事編集</b><span>記事を手動編集</span></button>
+          <button id="jumpArticleList" class="quickBtn" type="button">📚<b>記事一覧</b><span>既存記事を確認</span></button>
+          <button id="jumpQuality" class="quickBtn" type="button">✨<b>品質更新</b><span>既存記事を更新</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="smartCard">
+      <div class="smartCardHead">
+        <div><div class="eyebrow">RECENT ACTIVITY</div><h2>最近の自動作成</h2></div>
+        <span class="sectionHint">直近8件</span>
+      </div>
+      <div id="recentAutoRuns" class="activityList">読み込み中...</div>
+    </section>
+
+    <details id="qualitySection" class="adminFold">
+      <summary>✨ 既存記事の品質アップデート</summary>
+      <div class="foldBody">
+    <div class="panel" style="margin-top:18px">
       <h2>✍️ 記事品質アップデート</h2>
       <p>既存7記事を、読み物として楽しめる長文版へ一括更新します。タイトル・要約・本文・SEO・タグを更新し、D1へ直接反映します。</p>
       <div class="notice">体験描写は、実際の訪問を偽らず「子連れで訪れる場面を想定した編集部目線」で書いています。施設情報は変更されるため、記事内でも公式情報の再確認を案内しています。</div>
       <div class="btns"><button id="premiumBtn" class="btn">7記事を高品質版へ更新</button></div>
       <div id="premiumStatus" class="status">未実行</div>
     </div>
-    <div class="panel">
+      </div>
+    </details>
+
+    <details id="articleEditorSection" class="adminFold">
+      <summary>✍️ 記事編集・ホテル検索</summary>
+      <div class="foldBody">
+    <div class="panel" style="margin-top:18px">
       <h2>記事編集</h2>
       <input id="id" type="hidden">
       <div class="row">
@@ -1175,7 +1322,7 @@ function adminPage() {
         <div class="field"><label>年齢（カンマ区切り）</label><input id="ageGroups" class="input"></div>
       </div>
       <div class="field"><label>実用情報（カンマ区切り）</label><input id="practical" class="input"></div>
-      <h3>アフィリエイト</h3>
+      <h3 id="hotelSearchSection">アフィリエイト・ホテル検索</h3>
       <div class="panel" style="margin:12px 0;background:#f7fbff">
         <h3 style="margin-top:0">🤖 九州ホテル完全自動化</h3>
         <p class="small">九州7県を順番に巡回し、楽天トラベルからファミリー向け候補を検索。評価・口コミを加味して未掲載ホテルを選び、楽天アフィリエイトURL付きの記事を自動公開します。</p>
@@ -1209,7 +1356,16 @@ function adminPage() {
       <div class="btns"><button id="saveBtn" class="btn">保存</button><button id="newBtn" class="btn sub">新規入力</button></div>
       <div id="saveStatus" class="status">準備完了</div>
     </div>
-    <div class="panel"><h2>記事一覧</h2><div id="articleList">読み込み中...</div></div>
+      </div>
+    </details>
+
+    <section id="articleListSection" class="smartCard adminSection">
+      <div class="smartCardHead">
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2></div>
+        <button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button>
+      </div>
+      <div id="articleList">読み込み中...</div>
+    </section>
   </main>
 <script>
 (function(){
@@ -1221,16 +1377,130 @@ function adminPage() {
     return r.ok;
   }
   async function boot(){
-    if(password && await auth(password)){ $("loginBox").style.display="none"; $("adminApp").style.display="block"; loadArticles(); }
+    if(password && await auth(password)){ $("loginBox").style.display="none"; $("adminApp").style.display="block"; loadArticles(); loadDashboard(); }
   }
   $("loginBtn").onclick = async function(){
     var pw = $("pw").value;
     $("loginStatus").textContent = "確認中...";
-    if(await auth(pw)){ password=pw; sessionStorage.setItem("adminPassword",pw); $("loginBox").style.display="none"; $("adminApp").style.display="block"; loadArticles(); }
+    if(await auth(pw)){ password=pw; sessionStorage.setItem("adminPassword",pw); $("loginBox").style.display="none"; $("adminApp").style.display="block"; loadArticles(); loadDashboard(); }
     else $("loginStatus").textContent = "パスワードが違います。";
   };
   $("logoutBtn").onclick = function(){ sessionStorage.removeItem("adminPassword"); location.reload(); };
   function csv(v){ return v.split(",").map(function(x){return x.trim();}).filter(Boolean); }
+  function fmtDateTime(v){
+    if(!v) return "未実行";
+    try{
+      var d=new Date(v);
+      return new Intl.DateTimeFormat("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(d);
+    }catch(e){ return v; }
+  }
+
+  function autoStateLabel(s){
+    if(s==="success") return "成功";
+    if(s==="error") return "エラー";
+    if(s==="skip") return "スキップ";
+    return s||"未実行";
+  }
+
+  async function loadDashboard(){
+    try{
+      var r=await fetch("/api/admin-dashboard",{headers:headers()});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+
+      $("statArticles").textContent=d.articles?.published ?? 0;
+      $("statAffiliate").textContent=d.articles?.affiliateCount ?? 0;
+      $("statAutoSuccess").textContent=d.automation?.successRuns ?? 0;
+
+      var last=d.automation?.last;
+      var badge=$("autoStatusBadge");
+      badge.className="statusBadge"+(last?.status==="error"?" error":last?.status==="skip"?" skip":"");
+      badge.textContent=autoStateLabel(last?.status);
+
+      var integrations=d.integrations||{};
+      var apiOk=integrations.rakutenApplicationId&&integrations.rakutenAccessKey&&integrations.rakutenAffiliateId;
+      if(!last){
+        $("dashAutoStatus").innerHTML=
+          '<b>自動実行の準備は完了しています。</b><br>'+
+          '次回予定：毎朝6:10 JST / 楽天API：'+(apiOk?"接続設定済み":"設定確認が必要");
+      }else{
+        $("dashAutoStatus").innerHTML=
+          '<b>'+escapeHtmlClient(last.hotelName||"自動処理")+'</b><br>'+
+          '最終実行：'+escapeHtmlClient(fmtDateTime(last.runAt))+
+          ' / '+escapeHtmlClient(autoStateLabel(last.status))+
+          (last.prefecture?' / '+escapeHtmlClient(last.prefecture):'')+
+          (last.message?'<br>'+escapeHtmlClient(last.message):'')+
+          '<br>次回予定：毎朝6:10 JST';
+      }
+
+      var recent=d.automation?.recent||[];
+      $("recentAutoRuns").innerHTML=recent.length?recent.map(function(x){
+        var cls=x.status==="error"?" error":x.status==="skip"?" skip":"";
+        var title=x.hotelName||x.message||"自動処理";
+        var article=x.articleId?('<a href="/article.html?id='+encodeURIComponent(x.articleId)+'" target="_blank">記事を見る</a>'):"";
+        return '<div class="activityItem">'+
+          '<span class="activityDot'+cls+'"></span>'+
+          '<div><div class="activityTitle">'+escapeHtmlClient(title)+'</div>'+
+          '<div class="activityMeta">'+escapeHtmlClient(fmtDateTime(x.runAt))+
+          (x.prefecture?' ・ '+escapeHtmlClient(x.prefecture):'')+
+          (x.keyword?' ・ '+escapeHtmlClient(x.keyword):'')+'</div></div>'+
+          '<div class="activityState">'+escapeHtmlClient(autoStateLabel(x.status))+(article?' ・ '+article:'')+'</div>'+
+          '</div>';
+      }).join(""):'<div class="smartNotice">まだ自動作成履歴はありません。最初の実行後にここへ表示されます。</div>';
+    }catch(e){
+      $("autoStatusBadge").className="statusBadge error";
+      $("autoStatusBadge").textContent="確認失敗";
+      $("dashAutoStatus").textContent="ダッシュボード情報を取得できませんでした。";
+      $("recentAutoRuns").innerHTML='<div class="smartNotice">情報取得に失敗しました。</div>';
+    }
+  }
+
+  async function runAutoFromDashboard(){
+    var btn=$("dashAutoRunBtn");
+    btn.disabled=true;
+    btn.textContent="作成中...";
+    $("dashAutoStatus").textContent="九州のおすすめホテルを検索して記事を自動作成しています...";
+    try{
+      var r=await fetch("/api/auto-hotel",{method:"POST",headers:headers()});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+      if(d.skipped){
+        $("dashAutoStatus").textContent="今回はスキップ："+(d.reason||"候補なし");
+      }else{
+        $("dashAutoStatus").innerHTML='作成完了 ✅ <b>'+escapeHtmlClient(d.hotelName||"")+'</b> <a href="'+d.url+'" target="_blank">記事を見る</a>';
+      }
+      await loadDashboard();
+      await loadArticles();
+    }catch(e){
+      $("dashAutoStatus").textContent="自動作成エラー："+e.message;
+      await loadDashboard();
+    }
+    btn.disabled=false;
+    btn.textContent="今すぐ1記事作成";
+  }
+
+  $("dashAutoRunBtn").onclick=runAutoFromDashboard;
+  $("dashRefreshBtn").onclick=function(){ loadDashboard(); loadArticles(); };
+  $("jumpHotelSearch").onclick=function(){
+    $("articleEditorSection").open=true;
+    setTimeout(function(){ $("hotelSearchSection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
+  };
+  $("jumpArticleEditor").onclick=function(){
+    $("articleEditorSection").open=true;
+    setTimeout(function(){ $("articleEditorSection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
+  };
+  $("jumpArticleList").onclick=function(){ $("articleListSection").scrollIntoView({behavior:"smooth",block:"start"}); };
+  $("jumpQuality").onclick=function(){
+    $("qualitySection").open=true;
+    setTimeout(function(){ $("qualitySection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
+  };
+  $("newArticleTopBtn").onclick=function(){
+    $("articleEditorSection").open=true;
+    $("newBtn").click();
+    setTimeout(function(){ $("articleEditorSection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
+  };
+
+
   async function loadArticles(){
     var r = await fetch("/api/articles");
     var d = await r.json();
@@ -1366,6 +1636,7 @@ function adminPage() {
       $("autoHotelStatus").textContent="自動作成に失敗しました。";
     }
     $("autoHotelRunBtn").disabled=false;
+    loadDashboard();
   };
 
   refreshAutoHotelStatus();
@@ -1456,6 +1727,7 @@ export default {
       if (url.pathname === "/api/suginoi-article") return await createSuginoiArticle(request, env);
       if (url.pathname === "/api/hotel-article") return await createGenericHotelArticle(request, env);
       if (url.pathname === "/api/auto-hotel") return await handleAutoHotelApi(request, env);
+      if (url.pathname === "/api/admin-dashboard") return await handleAdminDashboard(request, env);
       if (url.pathname === "/api/premium-articles") return await upgradePremiumArticles(request, env);
       if (url.pathname === "/__diag") {
         if (!env.DB) return json({ ok: false, error: "D1 binding DB is not configured" }, { status: 500 });

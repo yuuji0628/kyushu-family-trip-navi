@@ -1,19 +1,17 @@
 事前検証済み
 
-- scheduled handler: OK
-- auto endpoint: OK
-- Kyushu 7 prefectures: OK
-- family keywords: OK
-- area api: OK
-- keyword api: OK
-- detail api: OK
-- duplicate prevention: OK
-- affiliate: OK
-- log table: OK
-- manual admin button: OK
-- D1 preserved: OK
-- auth preserved: OK
+- 管理ダッシュボードAPI: OK
+- 公開記事統計: OK
+- 楽天リンク統計: OK
+- 自動成功統計: OK
+- 最近の自動作成: OK
+- トップ自動作成ボタン: OK
+- スマホ2列統計: OK
+- 既存Cron処理維持: OK
+- 楽天API維持: OK
+- 秘密変数維持: OK
+- D1維持: OK
+- 管理認証維持: OK
 - node --check: OK
 
-重要: Cron TriggerそのものはCloudflare側で1回だけ追加が必要です。
-worker.jsから既存のCloudflareシークレット・変数・D1設定を削除/変更する処理はありません。
+Cloudflareの変数・シークレット・D1・Cronを削除/変更する処理は追加していません。
