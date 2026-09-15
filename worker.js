@@ -687,6 +687,109 @@ function pricePerspective(n) {
   return "記念旅行向けの予算になることもあるため、プラン内容と総額を丁寧に比較したい";
 }
 
+
+function varyHotelArticleContent(markdown, seed, hotel) {
+  const raw = String(markdown || "");
+  const matches = [...raw.matchAll(/^##\s+(.+)$/gm)];
+  if (matches.length < 3) return raw;
+
+  const sections = [];
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index;
+    const end = i + 1 < matches.length ? matches[i + 1].index : raw.length;
+    sections.push({
+      heading: matches[i][1].trim(),
+      text: raw.slice(start, end).trim()
+    });
+  }
+
+  const mode = Math.abs(Number(seed || 0)) % 4;
+  const modeData = [
+    {
+      label:"安心重視",
+      intro:"今回は、赤ちゃん・幼児連れで『泊まってから困らないか』を最優先に、客室・館内設備・年齢別ポイントから見ていきます。",
+      order:["客室","年齢別","館内施設","食事付き","1泊2日","料金","口コミ","旅行の中","編集部","こんな家族","逆に"],
+      aliases:{
+        "客室・内装を写真でチェック":"子どもと泊まる客室を先に確認",
+        "年齢別に見る確認ポイント":"年齢別｜ここまで見れば安心",
+        "館内施設・温泉・プールを確認":"館内で無理なく楽しめる？",
+        "食事付きか素泊まりか":"子連れの食事プラン、どっちが楽？"
+      }
+    },
+    {
+      label:"ホテル滞在重視",
+      intro:"このホテルは『観光のために寝る宿』ではなく、館内で過ごす時間も含めて評価してみます。設備・客室・食事の順で見ていきましょう。",
+      order:["館内施設","客室","食事付き","口コミ","料金","年齢別","1泊2日","旅行の中","編集部","こんな家族","逆に"],
+      aliases:{
+        "館内施設・温泉・プールを確認":"ホテル時間を楽しめる設備は？",
+        "客室・内装を写真でチェック":"客室で過ごす時間をイメージ",
+        "食事付きか素泊まりか":"ホテル滞在を左右する食事選び",
+        "口コミは“点数”より“似た家族”を見る":"宿泊者の声から見えるリアル"
+      }
+    },
+    {
+      label:"旅程重視",
+      intro:"子連れ旅行では、ホテル単体の良さより『その日の動線に無理がないか』が重要です。今回はアクセスと1泊2日の動き方から逆算します。",
+      order:["旅行の中","1泊2日","客室","館内施設","食事付き","年齢別","料金","口コミ","編集部","こんな家族","逆に"],
+      aliases:{
+        "旅行の中でどう使うホテルか":"旅程のどこにこのホテルを置く？",
+        "1泊2日ならこのくらいが現実的":"子どもを疲れさせにくい1泊2日モデル",
+        "客室・内装を写真でチェック":"到着後すぐ休める客室か",
+        "料金を見るときに一番気をつけたいこと":"旅程と予算を一緒に考える"
+      }
+    },
+    {
+      label:"比較・コスパ重視",
+      intro:"候補ホテルが複数あるときに比べやすいよう、料金・口コミ・客室・設備の順で『選ぶ材料』を整理します。",
+      order:["料金","口コミ","客室","食事付き","館内施設","旅行の中","年齢別","1泊2日","編集部","こんな家族","逆に"],
+      aliases:{
+        "料金を見るときに一番気をつけたいこと":"家族全員の総額で比べる",
+        "口コミは“点数”より“似た家族”を見る":"口コミはここだけ拾えばOK",
+        "客室・内装を写真でチェック":"同価格帯と比べたい客室ポイント",
+        "逆に、ここは予約前に再確認":"最後に比較表へ戻る前のチェック"
+      }
+    }
+  ][mode];
+
+  const first = sections.shift();
+  const lastIndex = sections.findIndex(s => s.heading.startsWith("最後に"));
+  const last = lastIndex >= 0 ? sections.splice(lastIndex, 1)[0] : null;
+
+  const used = new Set();
+  const ordered = [];
+  for (const keyword of modeData.order) {
+    const idx = sections.findIndex((s, i) => !used.has(i) && s.heading.includes(keyword));
+    if (idx >= 0) {
+      used.add(idx);
+      ordered.push(sections[idx]);
+    }
+  }
+  sections.forEach((s, i) => {
+    if (!used.has(i)) ordered.push(s);
+  });
+
+  const renameSection = section => {
+    let text = section.text;
+    const alias = modeData.aliases[section.heading];
+    if (alias) {
+      text = text.replace(/^##\s+.+$/m, "## " + alias);
+    }
+    return text;
+  };
+
+  const detailNote = hotel.roomImageUrl
+    ? `> POINT: 今回は楽天トラベル施設情報APIの客室画像も取得できています。外観写真を客室写真として代用せず、取得できた画像種別を分けて掲載しています。`
+    : `> MEMO: 客室画像は楽天側の返却状況によって空になる場合があります。その場合は誤った外観写真で代用せず、予約ページの客室一覧へ案内します。`;
+
+  return [
+    first ? first.text : "",
+    `> POINT: この記事の編集角度は「${modeData.label}」。${modeData.intro}`,
+    detailNote,
+    ...ordered.map(renameSection),
+    last ? last.text : ""
+  ].filter(Boolean).join("\n\n");
+}
+
 function buildFamilyHotelArticle(hotel) {
   const name = String(hotel.hotelName || "ホテル").trim();
   const address = String(hotel.address || "").trim();
@@ -701,6 +804,16 @@ function buildFamilyHotelArticle(hotel) {
   const pref = prefectureFromAddress(address);
   const seed = editorialSeed(hotel.hotelNo || name);
   const checked = todayJst();
+  const roomScore = Number(hotel.roomAverage || 0);
+  const bathScore = Number(hotel.bathAverage || 0);
+  const breakfastScore = Number(hotel.breakfastAverage || 0);
+  const cleanlinessScore = Number(hotel.cleanlinessAverage || 0);
+  const detailedScoreParts = [
+    roomScore ? `部屋★${roomScore}` : "",
+    bathScore ? `風呂★${bathScore}` : "",
+    breakfastScore ? `朝食★${breakfastScore}` : "",
+    cleanlinessScore ? `清潔さ★${cleanlinessScore}` : ""
+  ].filter(Boolean);
 
   const imageCandidates = [
     { url: hotel.hotelImageUrl || "", type:"hotel" },
@@ -778,7 +891,7 @@ const localHints = {
       ? `評価は${rating}${reviewNum ? `、口コミ${reviews}` : ""}。候補から外す理由は少なく、次は立地とプラン条件を見る段階です。`
       : `数字だけで即決するタイプではありません。立地、客室、食事、家族全員の総額まで見て判断したいホテルです。`;
 
-  const content = `## まず30秒でわかる結論
+  const baseContent = `## まず30秒でわかる結論
 
 ${opening}
 
@@ -793,6 +906,9 @@ ${photoBlock(heroImage, `${name}の施設写真`, `${name}の施設イメージ�
 - 最安料金目安：${price}
 - 楽天評価：${rating}
 - 口コミ：${reviews}
+${detailedScoreParts.length ? `- 評価内訳：${detailedScoreParts.join(" / ")}` : ""}
+${hotel.checkinTime ? `- チェックイン：${hotel.checkinTime}` : ""}
+${hotel.checkoutTime ? `- チェックアウト：${hotel.checkoutTime}` : ""}
 - 情報確認日：${checked}
 
 ${special ? `楽天トラベルの施設紹介には「${special}」とあります。これは宿の個性をつかむヒントになります。` : ""}
@@ -906,13 +1022,20 @@ ${name}は、${pref}の家族旅行で比較候補に入れやすいホテルで
 **広告について**  
 この記事にはアフィリエイトリンクを含みます。リンク経由の予約で当サイトに報酬が発生する場合がありますが、読者の予約料金が上乗せされるものではありません。`;
 
+  const content = varyHotelArticleContent(baseContent, seed, hotel);
+
   return {
     id: "hotel-" + String(hotel.hotelNo || Date.now()),
     title,
     area: /大分/.test(address) ? "oita" : /福岡/.test(address) ? "fukuoka" : /熊本/.test(address) ? "kumamoto" : /佐賀/.test(address) ? "saga" : /長崎/.test(address) ? "nagasaki" : /宮崎/.test(address) ? "miyazaki" : /鹿児島/.test(address) ? "kagoshima" : "kyushu",
     category: "hotel",
     icon: "🏨",
-    excerpt: `${name}を子連れで選ぶときに見るべきポイントを、料金・口コミ・アクセス・年齢別の旅程まで家族旅行目線で整理しました。`,
+    excerpt: chooseBySeed([
+      `${name}を子連れで選ぶときに見るべきポイントを、料金・口コミ・アクセス・年齢別の旅程まで家族旅行目線で整理しました。`,
+      `${name}で家族旅行を考えている人向けに、客室・館内設備・食事・移動のしやすさを具体的にチェックします。`,
+      `${pref}旅行の宿候補として${name}はどう？子どもの年齢や1日の動線まで含めて、予約前に見るところをまとめました。`,
+      `${name}を他のホテルと比較しやすいよう、家族全員の総額・口コミ・客室・設備を順番に確認します。`
+    ], seed, 2),
     content,
     tags: [name, pref, "子連れホテル", "家族旅行", "九州旅行"],
     ageGroups: ["0-2歳","3-6歳","7歳以上"],
@@ -1003,6 +1126,30 @@ function normalizeHotelCandidates(data) {
     reviewCount: Number(h.reviewCount || 0),
     hotelMinCharge: Number(h.hotelMinCharge || 0)
   }));
+}
+
+
+async function fetchRakutenHotelDetail(hotelNo, env) {
+  if (!hotelNo || !env.RAKUTEN_APPLICATION_ID || !env.RAKUTEN_ACCESS_KEY) return null;
+
+  const params = new URLSearchParams({
+    applicationId: env.RAKUTEN_APPLICATION_ID,
+    accessKey: env.RAKUTEN_ACCESS_KEY,
+    format: "json",
+    formatVersion: "2",
+    hotelNo: String(hotelNo),
+    responseType: "large",
+    hotelThumbnailSize: "3"
+  });
+  if (env.RAKUTEN_AFFILIATE_ID) params.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
+
+  const detailRes = await rakutenServerFetch(
+    "https://openapi.rakuten.co.jp/engine/api/Travel/HotelDetailSearch/20260731?" + params.toString(),
+    env
+  );
+
+  if (!detailRes.ok) return null;
+  return normalizeHotelCandidates(detailRes.data)[0] || null;
 }
 
 function candidateScore(h) {
@@ -1173,28 +1320,10 @@ async function autoCreateKyushuHotelArticle(env, options = {}) {
     return { ok:false, skipped:true, reason:"候補はすべて記事化済みです", prefecture:pref.name };
   }
 
-  // 4) 詳細情報を追加取得。
+  // 4) 詳細情報を追加取得。客室写真・評価詳細・館内情報もここで補完。
   await sleepMs(1400);
-  const detailParams = new URLSearchParams({
-    applicationId: env.RAKUTEN_APPLICATION_ID,
-    accessKey: env.RAKUTEN_ACCESS_KEY,
-    format: "json",
-    formatVersion: "2",
-    hotelNo: String(selected.hotelNo),
-    responseType: "large",
-    hotelThumbnailSize: "3"
-  });
-  if (env.RAKUTEN_AFFILIATE_ID) detailParams.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
-
-  const detailRes = await rakutenServerFetch(
-    "https://openapi.rakuten.co.jp/engine/api/Travel/HotelDetailSearch/20260731?" + detailParams.toString(),
-    env
-  );
-
-  if (detailRes.ok) {
-    const detailed = normalizeHotelCandidates(detailRes.data)[0];
-    if (detailed) selected = { ...selected, ...detailed };
-  }
+  const detailed = await fetchRakutenHotelDetail(selected.hotelNo, env);
+  if (detailed) selected = { ...selected, ...detailed };
 
   const article = buildFamilyHotelArticle(selected);
   const rakutenUrl = safeText(selected.hotelInformationUrl || selected.planListUrl);
@@ -1601,7 +1730,15 @@ async function createGenericHotelArticle(request, env) {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, { status: 405 });
 
   const input = await request.json().catch(() => ({}));
-  const hotel = input.hotel || {};
+  let hotel = input.hotel || {};
+
+  // 検索結果だけで記事化せず、施設番号があれば必ず詳細APIを追加取得。
+  // ここで roomImageUrl / roomThumbnailUrl なども補完する。
+  if (hotel.hotelNo) {
+    const detailed = await fetchRakutenHotelDetail(hotel.hotelNo, env);
+    if (detailed) hotel = { ...hotel, ...detailed };
+  }
+
   const rakutenUrl = String(input.rakutenUrl || hotel.hotelInformationUrl || hotel.planListUrl || "").trim();
 
   if (!hotel.hotelName || !rakutenUrl) {
@@ -1609,7 +1746,7 @@ async function createGenericHotelArticle(request, env) {
   }
 
   const a = buildFamilyHotelArticle(hotel);
-  const coverImage = String(hotel.hotelImageUrl || hotel.hotelThumbnailUrl || "").trim();
+  const coverImage = String(hotel.hotelImageUrl || hotel.hotelThumbnailUrl || hotel.roomImageUrl || "").trim();
 
   await env.DB.prepare(`INSERT OR REPLACE INTO articles (
     id,title,area,category,icon,coverImage,coverAlt,excerpt,content,tags,ageGroups,practical,
@@ -1669,27 +1806,84 @@ function pickHotelBasicInfo(item) {
   return null;
 }
 
+function findHotelSection(item, key) {
+  if (!item) return null;
+  if (Array.isArray(item)) {
+    for (const x of item) {
+      const found = findHotelSection(x, key);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof item !== "object") return null;
+  if (item[key]) return item[key];
+  if (item.hotel && item.hotel[key]) return item.hotel[key];
+  for (const value of Object.values(item)) {
+    if (value && typeof value === "object") {
+      const found = findHotelSection(value, key);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 function normalizeRakutenHotels(data) {
   const source = Array.isArray(data?.hotels) ? data.hotels : (Array.isArray(data?.items) ? data.items : []);
   const hotels = [];
   for (const item of source) {
     const basic = pickHotelBasicInfo(item) || item?.hotelBasicInfo || item;
     if (!basic || !basic.hotelName) continue;
+
+    const rating = findHotelSection(item, "hotelRatingInfo") || {};
+    const detail = findHotelSection(item, "hotelDetailInfo") || {};
+    const facilities = findHotelSection(item, "hotelFacilitiesInfo") || {};
+    const policy = findHotelSection(item, "hotelPolicyInfo") || {};
+
     hotels.push({
       hotelNo: basic.hotelNo || "",
       hotelName: basic.hotelName || "",
       hotelKanaName: basic.hotelKanaName || "",
       hotelInformationUrl: basic.hotelInformationUrl || "",
       planListUrl: basic.planListUrl || "",
+      reviewUrl: basic.reviewUrl || "",
       hotelSpecial: basic.hotelSpecial || "",
       hotelMinCharge: basic.hotelMinCharge ?? null,
       address: [basic.address1, basic.address2].filter(Boolean).join(""),
       access: basic.access || "",
       parkingInformation: basic.parkingInformation || "",
+      nearestStation: basic.nearestStation || "",
       hotelImageUrl: basic.hotelImageUrl || "",
       hotelThumbnailUrl: basic.hotelThumbnailUrl || "",
+      roomImageUrl: basic.roomImageUrl || "",
+      roomThumbnailUrl: basic.roomThumbnailUrl || "",
+      hotelMapImageUrl: basic.hotelMapImageUrl || "",
       reviewAverage: basic.reviewAverage ?? null,
-      reviewCount: basic.reviewCount ?? null
+      reviewCount: basic.reviewCount ?? null,
+      userReview: basic.userReview || "",
+
+      serviceAverage: rating.serviceAverage ?? null,
+      locationAverage: rating.locationAverage ?? null,
+      roomAverage: rating.roomAverage ?? null,
+      equipmentAverage: rating.equipmentAverage ?? null,
+      bathAverage: rating.bathAverage ?? null,
+      breakfastAverage: rating.breakfastAverage ?? null,
+      dinnerAverage: rating.dinnerAverage ?? null,
+      cleanlinessAverage: rating.cleanlinessAverage ?? null,
+
+      areaName: detail.areaName || "",
+      checkinTime: detail.checkinTime || "",
+      checkoutTime: detail.checkoutTime || "",
+      lastCheckinTime: detail.lastCheckinTime || "",
+      hotelRoomNum: facilities.hotelRoomNum || "",
+      roomFacilities: facilities.roomFacilities || [],
+      hotelFacilities: facilities.hotelFacilities || [],
+      breakfastPlace: facilities.breakfastPlace || "",
+      dinnerPlace: facilities.dinnerPlace || "",
+      bathType: facilities.bathType || "",
+      bathQuality: facilities.bathQuality || "",
+      bathBenefits: facilities.bathBenefits || "",
+      aboutLeisure: facilities.aboutLeisure || "",
+      cancelPolicy: policy.cancelPolicy || ""
     });
   }
   return hotels;
@@ -2095,7 +2289,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.7.1 / NATIVE HOTEL SEARCH</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.8.0 / ROOM DETAIL + VARIATION</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2169,7 +2363,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.7.1</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.8.0</div>
       </form>
     </section>
 
@@ -2257,7 +2451,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.7.1</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.8.0</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
