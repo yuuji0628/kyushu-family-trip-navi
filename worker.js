@@ -335,6 +335,228 @@ async function upgradePremiumArticles(request, env) {
 
 
 
+
+function buildFamilyHotelArticle(hotel) {
+  const name = String(hotel.hotelName || "ホテル");
+  const address = String(hotel.address || "");
+  const access = String(hotel.access || "");
+  const special = String(hotel.hotelSpecial || "");
+  const price = hotel.hotelMinCharge ? Number(hotel.hotelMinCharge).toLocaleString() + "円〜" : "予約ページで確認";
+  const rating = hotel.reviewAverage ? "★" + hotel.reviewAverage : "予約ページで確認";
+  const reviews = hotel.reviewCount ? String(hotel.reviewCount) + "件" : "予約ページで確認";
+
+  const content = `## ${name}は子連れ旅行の候補に入れたいホテル
+
+家族旅行では、「どこを観光するか」と同じくらい「どこに泊まるか」が旅の満足度を左右します。特に赤ちゃんや小さな子どもと一緒の場合、移動距離、食事、休憩の取りやすさ、翌朝の動きやすさまで含めてホテルを選ぶことが大切です。
+
+今回紹介するのは「${name}」。楽天トラベルに掲載されている情報をもとに、子連れ旅行でチェックしたいポイント、予約前に確認しておきたいこと、1泊2日の過ごし方まで家族目線で整理します。
+
+※ホテルの設備・サービス・料金・営業時間などは変更される場合があります。この記事では楽天トラベルAPIで取得できた公開情報を中心に構成し、個別設備について確認できない事項は断定していません。最終的な条件は予約ページや公式サイトでご確認ください。
+
+## 基本情報
+
+- ホテル名：${name}
+- 所在地：${address || "楽天トラベル予約ページで確認"}
+- アクセス：${access || "楽天トラベル予約ページで確認"}
+- 最安料金の目安：${price}
+- 楽天トラベル評価：${rating}
+- 口コミ件数：${reviews}
+
+${special ? `楽天トラベルの施設紹介には「${special}」と案内されています。` : "施設の特徴は楽天トラベルの予約ページで最新情報を確認できます。"}
+
+## 子連れ旅行でホテルを選ぶときに最初に見るポイント
+
+子ども連れのホテル選びでは、料金だけで比較すると失敗しやすくなります。大人だけの旅行なら多少の移動や予定変更も対応できますが、子どもがいると「眠い」「お腹が空いた」「抱っこして」が重なることがあります。
+
+まず見るべきなのは、ホテルまでのアクセスと、到着後に無理なく過ごせるかどうかです。${access ? `${name}のアクセス情報は「${access}」と案内されています。` : "アクセス条件は予約ページで確認してください。"} 車の場合は駐車場の有無や料金、公共交通機関の場合は最寄り駅や送迎の有無も確認しておくと安心です。
+
+次に、チェックイン・チェックアウト時間を確認します。子どもの昼寝時間と重なる場合は、到着直後に部屋へ入れるかどうかで負担が大きく変わります。
+
+## 料金は「大人2名」だけで見ない
+
+家族旅行の宿泊料金は、子どもの年齢、食事の有無、布団の有無で大きく変わります。
+
+検索画面で大人2名だけを入れて表示された料金と、実際の家族構成で入力した総額が異なることは珍しくありません。予約時には必ず、大人・小学生・幼児それぞれの人数を正しく入力してください。
+
+${name}の現在の最安料金目安は${price}ですが、これは日程やプラン、人数によって変動します。週末、連休、夏休み、年末年始などは料金が大きく変わる可能性があります。
+
+予約ページでは「1人あたり」なのか「1室あたり」なのかも確認し、最後の決済直前に表示される総額で比較するのがおすすめです。
+
+## 赤ちゃん連れなら確認したいこと
+
+0〜2歳の子どもとの旅行では、観光よりもホテル内で困らないことが重要です。
+
+予約前に確認したいのは、ベビーベッド、ベッドガード、子ども用アメニティ、離乳食、電子レンジ、貸出備品などです。これらはホテルによって対応が異なるため、記事内では未確認のものを「ある」と断定しません。
+
+必要な設備がある場合は、楽天トラベルのプラン詳細またはホテル公式サイトで確認し、不明点は宿泊施設へ問い合わせるのが確実です。
+
+特にベッドを利用する場合は、子どもの転落対策を事前に考えておきましょう。和室や低いベッドを選べる場合は、赤ちゃん連れでは安心材料になることがあります。
+
+## 3〜6歳の子どもなら「ホテルで過ごす時間」も考える
+
+幼児になると、ホテルに着いたあともまだ遊びたいということが増えてきます。
+
+館内施設、周辺の散歩場所、客室での過ごしやすさなど、「寝るだけではない時間」を想定しておくと旅程が組みやすくなります。
+
+ただし、ホテルごとに施設内容は大きく異なります。${name}で利用できる館内施設については、宿泊日の最新情報を予約ページで確認してください。
+
+子どもが楽しめる場所がホテル内にある場合でも、夕食直前まで遊ばせすぎると、食事中に眠くなってしまうことがあります。家族旅行では「予定を全部こなす」より、「一番楽しみたいことを一つ決める」ほうが結果的に満足しやすいです。
+
+## 小学生連れなら本人にもホテル選びに参加してもらう
+
+小学生になると、自分の好みがはっきりしてきます。
+
+旅行前にホテルの写真を見せて、「どの部屋がいい？」「何が楽しみ？」と聞いてみるのがおすすめです。自分で選んだという感覚があると、旅行そのものをより楽しみやすくなります。
+
+また、翌日の観光地までの移動時間も一緒に確認しておくと、朝の出発時間を決めやすくなります。
+
+## 食事付きプランを選ぶか、素泊まりにするか
+
+家族旅行では、食事付きプランにするかどうかも重要です。
+
+小さな子どもがいる場合、夕方に外へ食事へ出るだけでも大仕事になることがあります。ホテル内で食事を完結できるプランは、その点で大きなメリットがあります。
+
+一方、周辺のご当地グルメを楽しみたい場合や、子どもの食べられるものが限られている場合は、素泊まりや朝食のみのプランが合うこともあります。
+
+${name}の食事内容は、予約するプランによって異なる可能性があります。食事会場、提供形式、子ども料金、アレルギー対応については、必ずプラン詳細を確認してください。
+
+## 私ならこう組む｜1泊2日の家族旅行モデル
+
+### 1日目
+
+午前中から目的地周辺へ移動し、昼食後に観光を1〜2か所。
+
+午後は予定を詰め込みすぎず、チェックイン時間に合わせてホテルへ向かいます。
+
+到着後はまず荷物を置き、子どもに少し休憩時間を作ります。大人は次の予定へすぐ動きたくなりますが、子どもは移動だけでも疲れています。
+
+夕食付きプランなら、食事時間の30〜60分前には部屋へ戻っておくと安心です。
+
+夜は無理に予定を追加せず、入浴や翌日の準備を済ませて早めに休みます。
+
+### 2日目
+
+朝食付きなら、混雑時間を避けられるか確認しておくとスムーズです。
+
+朝食後は荷物を整理し、チェックアウト。子どもが元気なら午前中に観光を一つ入れ、昼食後は帰宅方向へ移動します。
+
+家族旅行では、「帰宅するまでが旅程」と考えて、最後まで余裕を残しておくのがおすすめです。
+
+## 予約前に確認したいチェックリスト
+
+- 子どもの宿泊料金区分
+- 添い寝条件
+- 食事の有無
+- 子ども用メニューの有無
+- 駐車場・送迎
+- 客室タイプ
+- 禁煙・喫煙
+- ベッド構成
+- チェックイン・チェックアウト
+- キャンセル条件
+- 館内施設の営業時間
+- 予約プランに含まれるサービス
+
+ホテル予約では、同じ客室名でもプランによって内容が違うことがあります。
+
+安いプランを見つけても、食事なし、返金不可、部屋指定不可など条件が異なる場合があります。料金だけで決めず、プラン名と条件まで確認してください。
+
+## 楽天トラベルで予約するときの見方
+
+楽天トラベルで${name}を予約する場合は、まず正しい人数と子どもの年齢区分を入力します。
+
+次に、宿泊プランを料金順だけでなく「自分たちの旅行に必要な条件」で絞ります。
+
+家族旅行なら、食事付き、禁煙、駐車場、客室タイプ、キャンセル条件などを優先して確認すると比較しやすくなります。
+
+口コミを見るときは、総合点だけでなく、自分たちと似た家族構成の投稿を探すのも参考になります。ただし、口コミは宿泊時期や個人の感じ方によって差があるため、最新の公式情報と合わせて見るのがおすすめです。
+
+この記事内の楽天トラベルボタンから、${name}の最新プラン・料金・空室状況を確認できます。
+
+## このホテルが向いているか判断する方法
+
+ホテル選びに絶対的な正解はありません。
+
+「観光をたくさんしたい家族」と「ホテルでのんびりしたい家族」では、良いホテルの条件が違います。
+
+${name}を検討するときは、次の3つを家族で決めてみてください。
+
+1. 今回の旅行で一番楽しみにしていること
+2. ホテルで何時間くらい過ごす予定か
+3. 子どもが疲れたときに予定を減らせるか
+
+この3つが整理できると、料金だけでは判断できなかった「自分たちに合うホテルかどうか」が見えやすくなります。
+
+## まとめ｜予約前に条件を確認して家族に合うプランを選ぼう
+
+${name}は、${address ? `${address}にある` : ""}家族旅行の宿泊先候補としてチェックしたいホテルです。
+
+楽天トラベル上の現在の評価は${rating}、最安料金の目安は${price}。ただし、料金やプラン内容は宿泊日によって変わります。
+
+子ども連れでは、最安値だけで選ぶより、移動、食事、客室、子どもの料金区分、キャンセル条件まで含めて比較することが大切です。
+
+特に赤ちゃんや幼児と一緒なら、予定を詰め込みすぎず、ホテルで休める時間を最初から旅程に入れておくと安心です。
+
+宿泊プラン・空室・最新料金は、この記事内の楽天トラベルリンクから確認できます。
+
+※この記事にはアフィリエイトリンクを含みます。リンクを経由して予約された場合、当サイトに報酬が発生することがあります。料金や予約条件に影響はありません。`;
+
+  return {
+    id: "hotel-" + String(hotel.hotelNo || Date.now()),
+    title: `${name}は子連れにおすすめ？料金・アクセス・予約前の注意点を家族旅行目線で徹底解説`,
+    area: /大分/.test(address) ? "oita" :
+          /福岡/.test(address) ? "fukuoka" :
+          /熊本/.test(address) ? "kumamoto" :
+          /佐賀/.test(address) ? "saga" :
+          /長崎/.test(address) ? "nagasaki" :
+          /宮崎/.test(address) ? "miyazaki" :
+          /鹿児島/.test(address) ? "kagoshima" : "kyushu",
+    category: "hotel",
+    icon: "🏨",
+    excerpt: `${name}を子連れで利用するときに確認したい料金、アクセス、食事、客室、子ども料金、予約時の注意点を家族旅行目線で詳しくまとめました。`,
+    content,
+    tags: [name, "子連れホテル", "家族旅行", "九州旅行"],
+    ageGroups: ["0-2歳","3-6歳","7歳以上"],
+    practical: ["子どもの料金区分を確認","食事条件を確認","キャンセル条件を確認","最新情報は予約ページで確認"],
+    seoMetaDescription: `${name}は子連れにおすすめ？料金、アクセス、食事、客室、子ども料金、予約前に確認したいポイントを家族旅行目線で詳しく解説。`,
+    seoKeywords: `${name} 子連れ,${name} 家族旅行,${name} 口コミ,${name} 料金,九州 子連れ ホテル`
+  };
+}
+
+async function createGenericHotelArticle(request, env) {
+  if (!env.DB) return json({ error: "D1 binding DB is not configured" }, { status: 500 });
+  if (!requireAuth(request, env)) return unauthorized();
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, { status: 405 });
+
+  const input = await request.json().catch(() => ({}));
+  const hotel = input.hotel || {};
+  const rakutenUrl = String(input.rakutenUrl || hotel.hotelInformationUrl || hotel.planListUrl || "").trim();
+
+  if (!hotel.hotelName || !rakutenUrl) {
+    return json({ error: "ホテル情報または楽天URLが不足しています。" }, { status: 400 });
+  }
+
+  const a = buildFamilyHotelArticle(hotel);
+  const coverImage = String(hotel.hotelImageUrl || hotel.hotelThumbnailUrl || "").trim();
+
+  await env.DB.prepare(`INSERT OR REPLACE INTO articles (
+    id,title,area,category,icon,coverImage,coverAlt,excerpt,content,tags,ageGroups,practical,
+    affiliateRakuten,affiliateJalan,affiliateYahoo,seoMetaDescription,seoKeywords,published,featured,date,updatedAt
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+    a.id,a.title,a.area,a.category,a.icon,coverImage,a.title,a.excerpt,a.content,
+    JSON.stringify(a.tags),JSON.stringify(a.ageGroups),JSON.stringify(a.practical),
+    rakutenUrl,"","",a.seoMetaDescription,a.seoKeywords,1,0,todayJst(),todayJst()
+  ).run();
+
+  return json({
+    ok: true,
+    id: a.id,
+    title: a.title,
+    url: "/article.html?id=" + encodeURIComponent(a.id),
+    charCount: a.content.length
+  });
+}
+
 async function createSuginoiArticle(request, env) {
   if (!env.DB) return json({ error: "D1 binding DB is not configured" }, { status: 500 });
   if (!requireAuth(request, env)) return unauthorized();
@@ -619,16 +841,16 @@ function adminPage() {
       <h3>アフィリエイト</h3>
       <div class="panel" style="margin:12px 0;background:#fbfffd">
         <h3 style="margin-top:0">🟥 楽天ホテル検索</h3>
-        <p class="small">ホテル名を入力 → 楽天トラベルAPIで検索 → 候補を選ぶとアフィリエイトURLを自動入力します。</p>
+        <p class="small">ホテル名を入力 → 楽天トラベルAPIで検索 → 候補を選ぶとアフィリエイトURLを自動入力します。さらに、そのホテルの記事を自動作成できます。</p>
         <div class="row">
           <div class="field"><input id="rakutenKeyword" class="input" placeholder="例：杉乃井ホテル"></div>
           <div class="field"><button id="rakutenSearchBtn" class="btn" type="button">楽天で検索</button></div>
         </div>
         <div id="rakutenSearchStatus" class="small"></div>
         <div id="rakutenResults"></div>
-        <div id="suginoiAutoBox" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid #d8e6df">
-          <button id="suginoiArticleBtn" class="btn" type="button">杉乃井ホテルの約5000字記事を作成</button>
-          <div id="suginoiArticleStatus" class="small" style="margin-top:8px"></div>
+        <div id="hotelArticleAutoBox" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid #d8e6df">
+          <button id="hotelArticleBtn" class="btn" type="button">このホテルの記事を自動作成</button>
+          <div id="hotelArticleStatus" class="small" style="margin-top:8px"></div>
         </div>
       </div>
       <div class="field"><label>楽天トラベルURL</label><input id="rakuten" class="input"></div>
@@ -753,26 +975,43 @@ function adminPage() {
         }
         if(!$("coverAlt").value) $("coverAlt").value=h.hotelName||"";
         window.__selectedRakutenHotel=h;
-        $("suginoiAutoBox").style.display=/杉乃井/.test(h.hotelName||"")?"block":"none";
-        $("rakutenSearchStatus").textContent="選択しました："+h.hotelName+"。記事を保存すると反映されます。";
+        $("hotelArticleAutoBox").style.display="block";
+        $("hotelArticleStatus").textContent="";
+        $("rakutenSearchStatus").textContent="選択しました："+h.hotelName+"。このまま記事を自動作成できます。";
       };
     });
   };
 
-  $("suginoiArticleBtn").onclick=async function(){
+  $("hotelArticleBtn").onclick=async function(){
     var h=window.__selectedRakutenHotel||{};
     var rakutenUrl=$("rakuten").value.trim();
-    if(!rakutenUrl){$("suginoiArticleStatus").textContent="先に杉乃井ホテルを選択してください。";return;}
-    $("suginoiArticleStatus").textContent="約5000字の記事を作成中...";
-    var r=await fetch("/api/suginoi-article",{method:"POST",headers:headers(),body:JSON.stringify({
-      rakutenUrl:rakutenUrl,
-      coverImage:h.hotelImageUrl||h.hotelThumbnailUrl||$("coverImage").value||""
-    })});
+    if(!h.hotelName||!rakutenUrl){
+      $("hotelArticleStatus").textContent="先にホテル候補の「このホテルを使う」を押してください。";
+      return;
+    }
+
+    $("hotelArticleBtn").disabled=true;
+    $("hotelArticleStatus").textContent=h.hotelName+"の記事を自動作成中...";
+
+    var r=await fetch("/api/hotel-article",{
+      method:"POST",
+      headers:headers(),
+      body:JSON.stringify({hotel:h,rakutenUrl:rakutenUrl})
+    });
     var d=await r.json().catch(function(){return {};});
-    if(!r.ok){$("suginoiArticleStatus").textContent="作成失敗: HTTP "+r.status+" "+(d.error||"");return;}
-    $("suginoiArticleStatus").innerHTML='作成完了 ✅ <a href="'+d.url+'" target="_blank">公開記事を確認する</a>';
+    $("hotelArticleBtn").disabled=false;
+
+    if(!r.ok){
+      $("hotelArticleStatus").textContent="作成失敗: HTTP "+r.status+" "+(d.error||"");
+      return;
+    }
+
+    $("hotelArticleStatus").innerHTML=
+      '作成完了 ✅ 約'+Number(d.charCount||0).toLocaleString()+
+      '文字 <a href="'+d.url+'" target="_blank">公開記事を確認する</a>';
     loadArticles();
   };
+
   function escapeHtmlClient(v){
     return String(v||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});
   }
@@ -810,6 +1049,7 @@ export default {
       if (url.pathname === "/api/articles") return await handleApi(request, env);
       if (url.pathname === "/api/rakuten-hotels") return await handleRakutenHotelSearch(request, env);
       if (url.pathname === "/api/suginoi-article") return await createSuginoiArticle(request, env);
+      if (url.pathname === "/api/hotel-article") return await createGenericHotelArticle(request, env);
       if (url.pathname === "/api/premium-articles") return await upgradePremiumArticles(request, env);
       if (url.pathname === "/__diag") {
         if (!env.DB) return json({ ok: false, error: "D1 binding DB is not configured" }, { status: 500 });
