@@ -140,6 +140,7 @@ function markdownLite(src = "") {
     .replace(/^&gt; POINT: (.+)$/gm, '<div class="editorPoint"><b>編集部ポイント</b><span>$1</span></div>')
     .replace(/^&gt; CHECK: (.+)$/gm, '<div class="checkPoint"><b>予約前チェック</b><span>$1</span></div>')
     .replace(/^&gt; MEMO: (.+)$/gm, '<div class="memoPoint"><b>ひとことメモ</b><span>$1</span></div>')
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, '<figure class="articlePhoto"><img src="$2" alt="$1" loading="lazy"><figcaption>$1</figcaption></figure>')
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
     .replace(/^## (.+)$/gm, "<h2>$1</h2>")
     .replace(/^- (.+)$/gm, "<li>$1</li>")
@@ -235,7 +236,11 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .relatedBox{margin-top:32px}.relatedGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .relatedGrid a{display:block;text-decoration:none;border:1px solid var(--line);border-radius:16px;padding:16px;background:#fff}
 .relatedGrid b,.relatedGrid span{display:block}.relatedGrid span{margin-top:6px;color:var(--muted);font-size:12px}
-.articleBody{font-size:17px;line-height:2;color:#21372f}.articleBody h2{margin-top:44px;padding:14px 0 10px;border-bottom:2px solid #dcece5;font-size:26px;line-height:1.4}.articleBody h3{margin-top:30px;font-size:20px;line-height:1.5}.articleBody p{margin:16px 0}.articleBody ul{padding-left:1.3em}.articleBody li{margin:8px 0}.editorPoint,.checkPoint,.memoPoint{display:grid;gap:5px;margin:22px 0;padding:16px 18px;border-radius:16px}.editorPoint{background:#eff9f5;border-left:5px solid #168861}.checkPoint{background:#fff9e9;border-left:5px solid #d8a91f}.memoPoint{background:#f4f7fb;border-left:5px solid #6d7f9e}.editorPoint b,.checkPoint b,.memoPoint b{font-size:13px}.editorPoint span,.checkPoint span,.memoPoint span{font-size:15px;line-height:1.7}
+.articleBody{font-size:17px;line-height:2;color:#21372f}.articleBody h2{margin-top:44px;padding:14px 0 10px;border-bottom:2px solid #dcece5;font-size:26px;line-height:1.4}.articleBody h3{margin-top:30px;font-size:20px;line-height:1.5}.articleBody p{margin:16px 0}.articleBody ul{padding-left:1.3em}.articleBody li{margin:8px 0}.editorPoint,.checkPoint,.memoPoint{display:grid;gap:5px;margin:22px 0;padding:16px 18px;border-radius:16px}.editorPoint{background:#eff9f5;border-left:5px solid #168861}.checkPoint{background:#fff9e9;border-left:5px solid #d8a91f}.memoPoint{background:#f4f7fb;border-left:5px solid #6d7f9e}
+.articlePhoto{margin:22px 0 26px}
+.articlePhoto img{display:block;width:100%;max-height:520px;object-fit:cover;border-radius:18px;border:1px solid var(--line);background:#f5f7f6}
+.articlePhoto figcaption{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+.editorPoint b,.checkPoint b,.memoPoint b{font-size:13px}.editorPoint span,.checkPoint span,.memoPoint span{font-size:15px;line-height:1.7}
 
 @media(max-width:800px){.nav{display:none}.menuBtn{display:block}.grid{grid-template-columns:1fr}.areaGrid{grid-template-columns:repeat(2,1fr)}.hero{padding:48px 0}.heroGrid{grid-template-columns:1fr}.heroPanel{display:none}.section{padding:46px 0}.row{grid-template-columns:1fr}.sectionHead{align-items:start}.brand{font-size:20px}.searchbar{display:grid;grid-template-columns:1fr auto}.rakutenResultCard{grid-template-columns:82px minmax(0,1fr);align-items:start}.rakutenResultImg{width:82px;height:68px}.rakutenResultCard .rakutenUseBtn{grid-column:1/-1;width:100%;margin-top:2px}.rakutenHotelName{font-size:16px}.admin{padding:0 14px}.panel{padding:18px}.affiliateTop a{display:block;text-align:center;margin-right:0}.adminHero{display:block;padding:22px}.heroActions{justify-content:flex-start;margin-top:16px}.statGrid{grid-template-columns:1fr 1fr}.adminGrid2{grid-template-columns:1fr}.quickGrid{grid-template-columns:1fr 1fr}.smartCard{padding:18px}.activityItem{grid-template-columns:auto 1fr}.activityState{grid-column:2}.admin{padding:14px 12px 60px}}
 </style>
@@ -455,6 +460,25 @@ function buildFamilyHotelArticle(hotel) {
   const seed = editorialSeed(hotel.hotelNo || name);
   const checked = todayJst();
 
+  const imageCandidates = [
+    hotel.hotelImageUrl,
+    hotel.hotelThumbnailUrl,
+    hotel.roomImageUrl,
+    hotel.roomThumbnailUrl,
+    hotel.planImageUrl,
+    hotel.planThumbnailUrl
+  ].filter(Boolean);
+  const uniqueImages = [...new Set(imageCandidates)].slice(0, 6);
+  const articleImg = i => uniqueImages[i] || uniqueImages[0] || "";
+  const hasPool = /プール|アクア|ウォーター|スライダー|水着/.test(special);
+  const hasOnsen = /温泉|露天|大浴場|湯|スパ/.test(special);
+  const hasKids = /キッズ|子供|子ども|ファミリー|ベビー/.test(special);
+
+  const photoBlock = (url, alt, caption) => url
+    ? `![${alt}](${url})\n\n*${caption}*\n\n`
+    : "";
+
+
   const localHints = {
     "福岡県":["市街地観光と組み合わせやすい","食事の選択肢を広げやすい","公共交通中心でも旅程を作りやすい"],
     "佐賀県":["温泉やドライブ旅と相性がいい","移動を詰め込みすぎない旅程が合いやすい","車移動の家族旅行に向きやすい"],
@@ -489,7 +513,7 @@ ${opening}
 
 ${verdict}
 
-> POINT: このホテルを見るときの軸は「${localHint}」こと。料金だけではなく、移動とホテル滞在をセットで考えると選びやすくなります。
+${photoBlock(articleImg(0), `${name}の施設写真`, `${name}の施設イメージ。最新の客室・設備は予約ページで確認してください。`)}> POINT: このホテルを見るときの軸は「${localHint}」こと。料金だけではなく、移動とホテル滞在をセットで考えると選びやすくなります。
 
 ### 今わかっている基本情報
 
@@ -501,6 +525,22 @@ ${verdict}
 - 情報確認日：${checked}
 
 ${special ? `楽天トラベルの施設紹介には「${special}」とあります。これは宿の個性をつかむヒントになります。` : ""}
+
+## 客室・内装を写真でチェック
+
+${photoBlock(articleImg(1), `${name}の客室・内装`, `客室・内装のイメージ。部屋タイプによって広さや設備は異なります。`)}
+子連れでは、客室の豪華さよりも「荷物を広げても動きやすいか」「寝かしつけしやすいか」「誰がどこで寝るか」を想像して選ぶのが大切です。
+
+> CHECK: 客室写真だけで決めず、定員・寝具・禁煙喫煙・バス・トイレ・添い寝条件まで確認してください。
+
+## 館内施設・温泉・プール
+
+${photoBlock(articleImg(2), `${name}の館内施設`, `館内施設のイメージ。営業日や利用条件は予約前に確認してください。`)}
+${hasPool ? `施設紹介からプール・水遊び系の設備が確認できるホテルです。子どもが楽しみにしやすいポイントなので、営業期間・対象年齢・水遊び用パンツ・浮き輪などの条件を予約前に確認しておくと安心です。` : ""}
+${hasOnsen ? `温泉・大浴場系の設備があるホテルなら、観光を詰め込みすぎず「ホテルでゆっくりする時間」を旅程に入れると満足度が上がりやすいです。` : ""}
+${hasKids ? `キッズ・ファミリー向け設備が案内されている場合は、対象年齢と利用時間を確認しておくと、子どもの昼寝や夕食時間と合わせやすくなります。` : ""}
+
+${photoBlock(articleImg(3), `${name}での滞在イメージ`, `ホテルで過ごす時間をイメージしやすい写真です。`)}
 
 ## 編集部ならここから見る
 
@@ -1590,7 +1630,7 @@ function adminPage() {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.3.0 / <span id="directDashVersion">direct loader</span></div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.4.0 / <span id="directDashVersion">direct loader</span></div>
       </div>
       <div class="heroActions">
         <button id="dashAutoRunBtn" class="btn" type="button">今すぐ1記事作成</button>
@@ -1626,7 +1666,7 @@ function adminPage() {
           <button id="jumpHotelSearch" class="quickBtn" type="button">🏨<b>ホテル検索</b><span>楽天から手動検索</span></button>
           <button id="jumpArticleEditor" class="quickBtn" type="button">✍️<b>記事編集</b><span>記事を手動編集</span></button>
           <button id="jumpArticleList" class="quickBtn" type="button">📚<b>記事一覧</b><span>既存記事を確認</span></button>
-          <button id="jumpQuality" class="quickBtn" type="button">✨<b>品質更新</b><span>既存記事を更新</span></button>
+          
           <button id="jumpGithubZip" class="quickBtn" type="button">📦<b>GitHub ZIP</b><span>ZIPから直接反映</span></button>
         </div>
       </div>
@@ -1656,7 +1696,7 @@ function adminPage() {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.3.0 / TAP FIX</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.4.0</div>
       </form>
     </section>
 
@@ -1668,18 +1708,7 @@ function adminPage() {
       <div id="recentAutoRuns" class="activityList">読み込み中...</div>
     </section>
 
-    <details id="qualitySection" class="adminFold">
-      <summary>✨ 既存記事の品質アップデート</summary>
-      <div class="foldBody">
-    <div class="panel" style="margin-top:18px">
-      <h2>✍️ 記事品質アップデート</h2>
-      <p>既存7記事を、読み物として楽しめる長文版へ一括更新します。タイトル・要約・本文・SEO・タグを更新し、D1へ直接反映します。</p>
-      <div class="notice">体験描写は、実際の訪問を偽らず「子連れで訪れる場面を想定した編集部目線」で書いています。施設情報は変更されるため、記事内でも公式情報の再確認を案内しています。</div>
-      <div class="btns"><button id="premiumBtn" class="btn">7記事を高品質版へ更新</button></div>
-      <div id="premiumStatus" class="status">未実行</div>
-    </div>
-      </div>
-    </details>
+    
 
     <details id="articleEditorSection" class="adminFold">
       <summary>✍️ 記事編集・ホテル検索</summary>
@@ -2363,10 +2392,6 @@ var directGithubZipFiles=[];
   };
   $("jumpArticleList").onclick=function(){ $("articleListSection").scrollIntoView({behavior:"smooth",block:"start"}); };
   $("jumpGithubZip").onclick=function(){ $("githubZipSection").scrollIntoView({behavior:"smooth",block:"start"}); };
-  $("jumpQuality").onclick=function(){
-    $("qualitySection").open=true;
-    setTimeout(function(){ $("qualitySection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
-  };
   $("newArticleTopBtn").onclick=function(){
     $("articleEditorSection").open=true;
     $("newBtn").click();
