@@ -447,7 +447,7 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .relatedGrid b,.relatedGrid span{display:block}.relatedGrid span{margin-top:6px;color:var(--muted);font-size:12px}
 .articleBody{font-size:17px;line-height:2;color:#21372f}.articleBody h2{margin-top:44px;padding:14px 0 10px;border-bottom:2px solid #dcece5;font-size:26px;line-height:1.4}.articleBody h3{margin-top:30px;font-size:20px;line-height:1.5}.articleBody p{margin:16px 0}.articleBody ul{padding-left:1.3em}.articleBody li{margin:8px 0}.editorPoint,.checkPoint,.memoPoint{display:grid;gap:5px;margin:22px 0;padding:16px 18px;border-radius:16px}.editorPoint{background:#eff9f5;border-left:5px solid #168861}.checkPoint{background:#fff9e9;border-left:5px solid #d8a91f}.memoPoint{background:#f4f7fb;border-left:5px solid #6d7f9e}
 .articlePhoto{margin:22px 0 26px}
-.articlePhoto img{display:block;width:100%;max-height:520px;object-fit:cover;border-radius:18px;border:1px solid var(--line);background:#f5f7f6}
+.articlePhoto img{display:block;width:auto;max-width:100%;height:auto;object-fit:contain;margin:0 auto;border-radius:18px;border:1px solid var(--line);background:#f5f7f6}
 .articlePhoto figcaption{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
 .editorPoint b,.checkPoint b,.memoPoint b{font-size:13px}.editorPoint span,.checkPoint span,.memoPoint span{font-size:15px;line-height:1.7}
 
@@ -815,54 +815,73 @@ function buildFamilyHotelArticle(hotel) {
     cleanlinessScore ? `清潔さ★${cleanlinessScore}` : ""
   ].filter(Boolean);
 
-  const imageCandidates = [
-    { url: hotel.hotelImageUrl || "", type:"hotel" },
-    { url: hotel.hotelThumbnailUrl || "", type:"hotel" },
-    { url: hotel.roomImageUrl || "", type:"room" },
-    { url: hotel.roomThumbnailUrl || "", type:"room" },
-    { url: hotel.planImageUrl || "", type:"plan" },
-    { url: hotel.planThumbnailUrl || "", type:"plan" }
+  const gallery = Array.isArray(hotel.imageGallery) ? hotel.imageGallery : [];
+  const fallbackImages = [
+    {url:hotel.hotelImageUrl || "", category:"hotel", isThumbnail:false},
+    {url:hotel.roomImageUrl || "", category:"room", isThumbnail:false},
+    {url:hotel.planImageUrl || "", category:"plan", isThumbnail:false},
+    {url:hotel.hotelThumbnailUrl || "", category:"hotel", isThumbnail:true},
+    {url:hotel.roomThumbnailUrl || "", category:"room", isThumbnail:true},
+    {url:hotel.planThumbnailUrl || "", category:"plan", isThumbnail:true}
   ].filter(x => x.url);
 
-  // Same URL is never shown twice. Preserve the most specific type when duplicates exist.
-  const imageMap = new Map();
-  const typePriority = { room:3, plan:2, hotel:1 };
-  for (const item of imageCandidates) {
-    const prev = imageMap.get(item.url);
-    if (!prev || typePriority[item.type] > typePriority[prev.type]) {
-      imageMap.set(item.url, item);
-    }
+  const gallerySource = gallery.length ? gallery : fallbackImages;
+  const byUrl = new Map();
+  for (const img of gallerySource) {
+    if (!img?.url) continue;
+    const prev = byUrl.get(img.url);
+    if (!prev || (prev.isThumbnail && !img.isThumbnail)) byUrl.set(img.url, img);
   }
-  const uniqueImages = [...imageMap.values()].slice(0, 6);
+  const allImages = [...byUrl.values()];
+  const originalsBy = category => allImages.filter(x => x.category === category && !x.isThumbnail);
 
-  const firstByType = type => uniqueImages.find(x => x.type === type)?.url || "";
-  const unusedImage = used => uniqueImages.find(x => !used.has(x.url))?.url || "";
+  const roomImages = originalsBy("room");
+  const mealImages = originalsBy("meal");
+  const bathImages = originalsBy("bath");
+  const poolImages = originalsBy("pool");
+  const facilityImages = [...originalsBy("facility"), ...originalsBy("hotel")];
+  const planImages = originalsBy("plan");
+  const otherImages = originalsBy("other");
 
-  const hasPool = /プール|アクア|ウォーター|スライダー|水着/.test(special);
-  const hasOnsen = /温泉|露天|大浴場|湯|スパ/.test(special);
+  const hasPool = /プール|アクア|ウォーター|スライダー|水着/.test(special) || poolImages.length > 0;
+  const hasOnsen = /温泉|露天|大浴場|湯|スパ/.test(special) || bathImages.length > 0;
   const hasKids = /キッズ|子供|子ども|ファミリー|ベビー/.test(special);
 
   const usedArticleImages = new Set();
-  const takeImage = preferredType => {
-    let url = preferredType ? firstByType(preferredType) : "";
-    if (url && usedArticleImages.has(url)) url = "";
-    if (!url) url = unusedImage(usedArticleImages);
-    if (url) usedArticleImages.add(url);
-    return url;
+  const uniqueSectionImages = items => {
+    const out = [];
+    for (const img of items || []) {
+      if (!img?.url || usedArticleImages.has(img.url)) continue;
+      usedArticleImages.add(img.url);
+      out.push(img);
+    }
+    return out;
   };
 
-  // We only label an image "客室" when Rakuten returned a room image.
-  // Generic hotel/plan images are described generically to avoid misleading captions.
-  const heroImage = takeImage("hotel");
-  const roomImage = firstByType("room") && !usedArticleImages.has(firstByType("room"))
-    ? (usedArticleImages.add(firstByType("room")), firstByType("room"))
-    : "";
-  const facilityImage = takeImage("");
-  const extraImage = takeImage("");
+  const heroImages = uniqueSectionImages(facilityImages.slice(0,2));
+  const articleRoomImages = uniqueSectionImages(roomImages);
+  const articlePoolImages = uniqueSectionImages(poolImages);
+  const articleBathImages = uniqueSectionImages(bathImages);
+  const articleMealImages = uniqueSectionImages(mealImages);
+  const articleFacilityImages = uniqueSectionImages(facilityImages.slice(2));
+  const articlePlanImages = uniqueSectionImages(planImages);
+  const articleOtherImages = uniqueSectionImages(otherImages);
 
   const photoBlock = (url, alt, caption) => url
     ? `![${alt}](${url})\n\n*${caption}*\n\n`
     : "";
+
+  const photoGalleryBlock = (items, label, caption) => {
+    if (!items || !items.length) return "";
+    return items.map((img,i) =>
+      photoBlock(
+        img.url,
+        `${name}の${label}${items.length > 1 ? ` ${i+1}` : ""}`,
+        `${caption}${items.length > 1 ? `（${i+1}枚目）` : ""}`
+      )
+    ).join("");
+  };
+
 const localHints = {
     "福岡県":["市街地観光と組み合わせやすい","食事の選択肢を広げやすい","公共交通中心でも旅程を作りやすい"],
     "佐賀県":["温泉やドライブ旅と相性がいい","移動を詰め込みすぎない旅程が合いやすい","車移動の家族旅行に向きやすい"],
@@ -897,7 +916,7 @@ ${opening}
 
 ${verdict}
 
-${photoBlock(heroImage, `${name}の施設写真`, `${name}の施設イメージ。最新の客室・設備は予約ページで確認してください。`)}> POINT: このホテルを見るときの軸は「${localHint}」こと。料金だけではなく、移動とホテル滞在をセットで考えると選びやすくなります。
+${photoGalleryBlock(heroImages, "外観・施設", "楽天トラベルから取得した施設写真です。")}> POINT: このホテルを見るときの軸は「${localHint}」こと。料金だけではなく、移動とホテル滞在をセットで考えると選びやすくなります。
 
 ### 今わかっている基本情報
 
@@ -915,19 +934,22 @@ ${special ? `楽天トラベルの施設紹介には「${special}」とありま
 
 ## 客室・内装を写真でチェック
 
-${roomImage ? photoBlock(roomImage, `${name}の客室・内装`, `楽天トラベルから取得した客室写真です。部屋タイプによって広さや設備は異なります。`) : `*客室専用の写真を取得できなかったため、誤解を避けて画像は掲載していません。予約ページで客室タイプごとの写真をご確認ください。*\n\n`}
+${articleRoomImages.length ? photoGalleryBlock(articleRoomImages, "客室・内装", "楽天トラベルから取得した客室写真です。部屋タイプによって広さや設備は異なります。") : `*客室専用の高解像度写真を取得できなかったため、外観・プールなど別カテゴリの画像で代用していません。予約ページで客室タイプごとの写真をご確認ください。*\n\n`}
 子連れでは、客室の豪華さよりも「荷物を広げても動きやすいか」「寝かしつけしやすいか」「誰がどこで寝るか」を想像して選ぶのが大切です。
 
 > CHECK: 客室写真だけで決めず、定員・寝具・禁煙喫煙・バス・トイレ・添い寝条件まで確認してください。
 
 ## 館内施設・温泉・プールを確認
 
-${photoBlock(facilityImage, `${name}の施設イメージ`, `楽天トラベルから取得した施設写真です。写真の内容と利用条件は予約ページで最新情報をご確認ください。`)}
+${photoGalleryBlock(articlePoolImages, "プール・水遊び施設", "楽天トラベルから取得したプール・水遊び施設の写真です。")}
+${photoGalleryBlock(articleBathImages, "温泉・お風呂", "楽天トラベルから取得した温泉・浴場の写真です。")}
+${photoGalleryBlock(articleFacilityImages, "館内・施設", "楽天トラベルから取得した館内・施設写真です。")}
 ${hasPool ? `施設紹介からプール・水遊び系の設備が確認できるホテルです。子どもが楽しみにしやすいポイントなので、営業期間・対象年齢・水遊び用パンツ・浮き輪などの条件を予約前に確認しておくと安心です。なお、楽天APIからプール専用写真を判別できない場合は、誤った写真を載せないため施設写真のみ掲載します。` : ""}
 ${hasOnsen ? `温泉・大浴場系の設備があるホテルなら、観光を詰め込みすぎず「ホテルでゆっくりする時間」を旅程に入れると満足度が上がりやすいです。` : ""}
 ${hasKids ? `キッズ・ファミリー向け設備が案内されている場合は、対象年齢と利用時間を確認しておくと、子どもの昼寝や夕食時間と合わせやすくなります。` : ""}
 
-${photoBlock(extraImage, `${name}の施設・宿泊イメージ`, `楽天トラベルから取得した別の施設写真です。`)}
+${photoGalleryBlock(articlePlanImages, "宿泊プラン・施設", "楽天トラベルから取得した宿泊プラン関連の写真です。")}
+${photoGalleryBlock(articleOtherImages, "その他の写真", "楽天トラベルから取得したその他の写真です。")}
 
 ## 編集部ならここから見る
 
@@ -972,6 +994,12 @@ ${pricePerspective(priceNum)}という価格感なので、条件が合えば候
 ### 小学生
 
 本人にもホテル写真を見せて、客室・食事・周辺観光のどれを楽しみにしているか聞いてみると、家族の優先順位が見えます。
+
+## 食事・朝食・レストランを写真で確認
+
+${articleMealImages.length ? photoGalleryBlock(articleMealImages, "食事・朝食・レストラン", "楽天トラベルから取得した食事・レストラン関連の写真です。") : `*食事専用の高解像度写真を取得できなかった場合は、別カテゴリの画像で代用しません。*\n\n`}
+
+朝食・夕食は、子どもの年齢や食べられるものによってホテル選びの満足度が大きく変わります。バイキング形式か、会場までの移動、子ども用メニューや椅子の有無なども確認したいポイントです。
 
 ## 食事付きか素泊まりか
 
@@ -1827,6 +1855,73 @@ function findHotelSection(item, key) {
   return null;
 }
 
+
+function rakutenImageCategory(path = "") {
+  const p = String(path).toLowerCase();
+  if (/room|guest|bed|客室/.test(p)) return "room";
+  if (/breakfast|dinner|meal|food|restaurant|cuisine|朝食|夕食|食事|料理/.test(p)) return "meal";
+  if (/bath|onsen|spa|hot.?spring|露天|温泉|風呂|大浴場/.test(p)) return "bath";
+  if (/pool|aqua|water|プール|水遊び/.test(p)) return "pool";
+  if (/lobby|facility|facilities|hall|館内|施設/.test(p)) return "facility";
+  if (/plan/.test(p)) return "plan";
+  if (/hotel|main|exterior|外観/.test(p)) return "hotel";
+  return "other";
+}
+
+function collectRakutenImages(node, path = "", out = []) {
+  if (!node) return out;
+  if (typeof node === "string") {
+    if (/^https?:\/\//i.test(node) && /\.(?:jpe?g|png|webp)(?:\?|$)/i.test(node)) {
+      out.push({ url:node, category:rakutenImageCategory(path), path });
+    }
+    return out;
+  }
+  if (Array.isArray(node)) {
+    node.forEach((v,i) => collectRakutenImages(v, path+"["+i+"]", out));
+    return out;
+  }
+  if (typeof node === "object") {
+    for (const [k,v] of Object.entries(node)) {
+      collectRakutenImages(v, path ? path+"."+k : k, out);
+    }
+  }
+  return out;
+}
+
+function normalizeRakutenImageGallery(item, basic = {}) {
+  const raw = collectRakutenImages(item);
+  [
+    ["hotel", basic.hotelImageUrl],
+    ["hotel", basic.hotelThumbnailUrl],
+    ["room", basic.roomImageUrl],
+    ["room", basic.roomThumbnailUrl],
+    ["plan", basic.planImageUrl],
+    ["plan", basic.planThumbnailUrl]
+  ].forEach(([category,url]) => {
+    if (url) raw.push({url,category,path:"basic."+category});
+  });
+
+  const isThumb = x => /thumbnail/i.test(x.path || "") || /thumbnail/i.test(x.url || "");
+  const exact = new Map();
+
+  for (const img of raw) {
+    if (!img.url) continue;
+    const prev = exact.get(img.url);
+    if (!prev || (isThumb(prev) && !isThumb(img))) exact.set(img.url, img);
+  }
+
+  const arr = [...exact.values()].map(x => ({
+    url:x.url,
+    category:x.category || "other",
+    isThumbnail:isThumb(x)
+  }));
+
+  // For article body, prefer originals. Thumbnail is retained only if that category
+  // has no original image at all.
+  const originals = new Set(arr.filter(x => !x.isThumbnail).map(x => x.category));
+  return arr.filter(x => !x.isThumbnail || !originals.has(x.category));
+}
+
 function normalizeRakutenHotels(data) {
   const source = Array.isArray(data?.hotels) ? data.hotels : (Array.isArray(data?.items) ? data.items : []);
   const hotels = [];
@@ -1838,6 +1933,8 @@ function normalizeRakutenHotels(data) {
     const detail = findHotelSection(item, "hotelDetailInfo") || {};
     const facilities = findHotelSection(item, "hotelFacilitiesInfo") || {};
     const policy = findHotelSection(item, "hotelPolicyInfo") || {};
+
+    const imageGallery = normalizeRakutenImageGallery(item, basic);
 
     hotels.push({
       hotelNo: basic.hotelNo || "",
@@ -1883,7 +1980,8 @@ function normalizeRakutenHotels(data) {
       bathQuality: facilities.bathQuality || "",
       bathBenefits: facilities.bathBenefits || "",
       aboutLeisure: facilities.aboutLeisure || "",
-      cancelPolicy: policy.cancelPolicy || ""
+      cancelPolicy: policy.cancelPolicy || "",
+      imageGallery
     });
   }
   return hotels;
@@ -2289,7 +2387,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.8.0 / ROOM DETAIL + VARIATION</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.9.0 / FULL PHOTO GALLERY</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2363,7 +2461,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.8.0</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.9.0</div>
       </form>
     </section>
 
@@ -2451,7 +2549,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.8.0</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.9.0</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
