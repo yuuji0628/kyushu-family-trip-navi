@@ -413,6 +413,13 @@ async function handleRakutenHotelSearch(request, env) {
       outboundHeaders.set("referer", "https://kyushu-family-trip-navi-worker.rrwpvwmz8p.workers.dev/admin.html");
     }
 
+    // 2026年版楽天APIでは、エラー名がREFERRER_MISSINGでも
+    // サーバーサイド呼び出しでは Origin も必要になるケースがある。
+    outboundHeaders.set(
+      "origin",
+      "https://kyushu-family-trip-navi-worker.rrwpvwmz8p.workers.dev"
+    );
+
     const outboundRequest = new Request(apiUrl, {
       method: "GET",
       headers: outboundHeaders,

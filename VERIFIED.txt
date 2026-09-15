@@ -1,14 +1,8 @@
 事前検証済み
 
-- 実Referer転送: OK
-- 認証情報を外部送信しない: OK
-- Refererフォールバック: OK
-- 自動リトライ維持: OK
-- Application ID維持: OK
-- Access Key維持: OK
-- Affiliate ID維持: OK
+- Origin追加: OK
+- Referer維持: OK
+- リトライ維持: OK
+- 秘密変数維持: OK
 - D1維持: OK
-- 管理認証維持: OK
 - node --check: OK
-
-※楽天API実接続はCloudflare上の秘密値が必要なため、デプロイ後に管理画面から1回検索して最終確認してください。
