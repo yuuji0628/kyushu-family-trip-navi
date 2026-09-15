@@ -1030,55 +1030,76 @@ async function handleAdminDashboard(request, env) {
   if (!requireAuth(request, env)) return unauthorized();
   if (!env.DB) return json({ error:"D1 binding DB is not configured" }, { status:500 });
 
-  await ensureAutoHotelLogTable(env.DB);
+  let articleStats = { total:0, published:0, drafts:0, affiliateCount:0 };
+  let runStats = { totalRuns:0, successRuns:0, errorRuns:0, skipRuns:0 };
+  let recent = [];
+  let warnings = [];
 
-  const articleStats = await env.DB.prepare(`
-    SELECT
-      COUNT(*) AS total,
-      SUM(CASE WHEN published = 1 THEN 1 ELSE 0 END) AS published,
-      SUM(CASE WHEN published = 0 THEN 1 ELSE 0 END) AS drafts,
-      SUM(CASE WHEN affiliateRakuten IS NOT NULL AND affiliateRakuten <> '' THEN 1 ELSE 0 END) AS affiliateCount
-    FROM articles
-  `).first();
+  // Articles are the most important dashboard data. Load this independently.
+  try {
+    const row = await env.DB.prepare(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN published = 1 THEN 1 ELSE 0 END) AS published,
+        SUM(CASE WHEN published = 0 THEN 1 ELSE 0 END) AS drafts,
+        SUM(CASE WHEN affiliateRakuten IS NOT NULL AND affiliateRakuten <> '' THEN 1 ELSE 0 END) AS affiliateCount
+      FROM articles
+    `).first();
+    articleStats = {
+      total:Number(row?.total || 0),
+      published:Number(row?.published || 0),
+      drafts:Number(row?.drafts || 0),
+      affiliateCount:Number(row?.affiliateCount || 0)
+    };
+  } catch (e) {
+    warnings.push("記事統計: " + String(e?.message || e));
+  }
 
-  const runStats = await env.DB.prepare(`
-    SELECT
-      COUNT(*) AS totalRuns,
-      SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successRuns,
-      SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS errorRuns,
-      SUM(CASE WHEN status = 'skip' THEN 1 ELSE 0 END) AS skipRuns
-    FROM auto_hotel_runs
-  `).first();
+  // Auto-run history must never prevent the dashboard from opening.
+  try {
+    await ensureAutoHotelLogTable(env.DB);
+    const row = await env.DB.prepare(`
+      SELECT
+        COUNT(*) AS totalRuns,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successRuns,
+        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS errorRuns,
+        SUM(CASE WHEN status = 'skip' THEN 1 ELSE 0 END) AS skipRuns
+      FROM auto_hotel_runs
+    `).first();
 
-  const recentResult = await env.DB.prepare(`
-    SELECT id, runAt, status, prefecture, keyword, hotelNo, hotelName, articleId, message
-    FROM auto_hotel_runs
-    ORDER BY id DESC
-    LIMIT 8
-  `).all();
+    runStats = {
+      totalRuns:Number(row?.totalRuns || 0),
+      successRuns:Number(row?.successRuns || 0),
+      errorRuns:Number(row?.errorRuns || 0),
+      skipRuns:Number(row?.skipRuns || 0)
+    };
 
-  const last = recentResult.results?.[0] || null;
+    const rr = await env.DB.prepare(`
+      SELECT id, runAt, status, prefecture, keyword, hotelNo, hotelName, articleId, message
+      FROM auto_hotel_runs
+      ORDER BY id DESC
+      LIMIT 8
+    `).all();
+    recent = rr?.results || [];
+  } catch (e) {
+    warnings.push("自動作成履歴: " + String(e?.message || e));
+  }
 
   return json({
     ok:true,
-    articles:{
-      total:Number(articleStats?.total || 0),
-      published:Number(articleStats?.published || 0),
-      drafts:Number(articleStats?.drafts || 0),
-      affiliateCount:Number(articleStats?.affiliateCount || 0)
-    },
+    partial:warnings.length > 0,
+    warnings,
+    articles:articleStats,
     automation:{
-      totalRuns:Number(runStats?.totalRuns || 0),
-      successRuns:Number(runStats?.successRuns || 0),
-      errorRuns:Number(runStats?.errorRuns || 0),
-      skipRuns:Number(runStats?.skipRuns || 0),
-      last,
-      recent:recentResult.results || []
+      ...runStats,
+      last:recent[0] || null,
+      recent
     },
     integrations:{
       rakutenApplicationId:!!env.RAKUTEN_APPLICATION_ID,
       rakutenAccessKey:!!env.RAKUTEN_ACCESS_KEY,
       rakutenAffiliateId:!!env.RAKUTEN_AFFILIATE_ID,
+      githubToken:!!env.GITHUB_TOKEN,
       d1:!!env.DB
     },
     schedule:{
@@ -1415,7 +1436,7 @@ function adminPage() {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.2.4</div>
       </div>
       <div class="heroActions">
         <button id="dashAutoRunBtn" class="btn" type="button">今すぐ1記事作成</button>
@@ -1622,10 +1643,18 @@ async function githubCheckDirect(){
   btn.disabled=true;
 
   try{
-    var r=await fetch("/api/github-status",{
-      cache:"no-store",
-      headers:{"x-admin-password":pw}
-    });
+    var controller=new AbortController();
+    var timer=setTimeout(function(){controller.abort();},10000);
+    var r;
+    try{
+      r=await fetch("/api/github-status",{
+        cache:"no-store",
+        signal:controller.signal,
+        headers:{"x-admin-password":pw}
+      });
+    }finally{
+      clearTimeout(timer);
+    }
     var text=await r.text();
     var d={};
     try{ d=text?JSON.parse(text):{}; }catch(e){ d={raw:text}; }
@@ -1642,7 +1671,7 @@ async function githubCheckDirect(){
   }catch(e){
     badge.className="statusBadge error";
     badge.textContent="通信エラー";
-    status.textContent="接続確認エラー: "+(e&&e.message?e.message:"不明なエラー");
+    status.textContent="接続確認エラー: "+(e&&e.name==="AbortError"?"10秒でタイムアウトしました":(e&&e.message?e.message:"不明なエラー"));
   }finally{
     btn.disabled=false;
   }
@@ -1867,6 +1896,19 @@ async function githubCheckDirect(){
   };
 
 
+
+  async function fetchWithTimeout(url, options, timeoutMs){
+    var controller=new AbortController();
+    var timer=setTimeout(function(){controller.abort();}, timeoutMs||10000);
+    try{
+      var opts=Object.assign({},options||{});
+      opts.signal=controller.signal;
+      return await fetch(url,opts);
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
   function fmtDateTime(v){
     if(!v) return "未実行";
     try{
@@ -1884,13 +1926,17 @@ async function githubCheckDirect(){
 
   async function loadDashboard(){
     try{
-      var r=await fetch("/api/admin-dashboard",{headers:headers()});
+      var r=await fetchWithTimeout("/api/admin-dashboard",{headers:headers(),cache:"no-store"},10000);
       var d=await r.json().catch(function(){return {};});
       if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
 
       $("statArticles").textContent=d.articles?.published ?? 0;
       $("statAffiliate").textContent=d.articles?.affiliateCount ?? 0;
       $("statAutoSuccess").textContent=d.automation?.successRuns ?? 0;
+
+      if(d.partial && d.warnings && d.warnings.length){
+        $("dashAutoStatus").innerHTML='<div class="smartNotice">一部データのみ取得しました：'+escapeHtmlClient(d.warnings.join(" / "))+'</div>';
+      }
 
       var last=d.automation?.last;
       var badge=$("autoStatusBadge");
@@ -1899,11 +1945,11 @@ async function githubCheckDirect(){
 
       var integrations=d.integrations||{};
       var apiOk=integrations.rakutenApplicationId&&integrations.rakutenAccessKey&&integrations.rakutenAffiliateId;
-      if(!last){
+      if(!last && !d.partial){
         $("dashAutoStatus").innerHTML=
           '<b>自動実行の準備は完了しています。</b><br>'+
           '次回予定：毎朝6:10 JST / 楽天API：'+(apiOk?"接続設定済み":"設定確認が必要");
-      }else{
+      }else if(last){
         $("dashAutoStatus").innerHTML=
           '<b>'+escapeHtmlClient(last.hotelName||"自動処理")+'</b><br>'+
           '最終実行：'+escapeHtmlClient(fmtDateTime(last.runAt))+
@@ -1930,8 +1976,8 @@ async function githubCheckDirect(){
     }catch(e){
       $("autoStatusBadge").className="statusBadge error";
       $("autoStatusBadge").textContent="確認失敗";
-      $("dashAutoStatus").textContent="ダッシュボード情報を取得できませんでした。";
-      $("recentAutoRuns").innerHTML='<div class="smartNotice">情報取得に失敗しました。</div>';
+      $("dashAutoStatus").textContent="ダッシュボード取得エラー："+(e.name==="AbortError"?"10秒でタイムアウトしました":e.message);
+      $("recentAutoRuns").innerHTML='<div class="smartNotice">情報取得に失敗しました。上の「更新」を押すと再試行できます。</div>';
     }
   }
 
