@@ -324,6 +324,98 @@ async function upgradePremiumArticles(request, env) {
   return json({ ok: errors.length === 0, updated, total: PREMIUM_ARTICLES.length, missing, errors });
 }
 
+
+function pickHotelBasicInfo(item) {
+  if (!item) return null;
+  if (item.hotelBasicInfo) return item.hotelBasicInfo;
+  if (item.hotel && item.hotel.hotelBasicInfo) return item.hotel.hotelBasicInfo;
+  if (Array.isArray(item)) {
+    for (const x of item) {
+      if (x?.hotelBasicInfo) return x.hotelBasicInfo;
+      if (x?.hotel?.hotelBasicInfo) return x.hotel.hotelBasicInfo;
+    }
+  }
+  return null;
+}
+
+function normalizeRakutenHotels(data) {
+  const source = Array.isArray(data?.hotels) ? data.hotels : (Array.isArray(data?.items) ? data.items : []);
+  const hotels = [];
+  for (const item of source) {
+    const basic = pickHotelBasicInfo(item) || item?.hotelBasicInfo || item;
+    if (!basic || !basic.hotelName) continue;
+    hotels.push({
+      hotelNo: basic.hotelNo || "",
+      hotelName: basic.hotelName || "",
+      hotelKanaName: basic.hotelKanaName || "",
+      hotelInformationUrl: basic.hotelInformationUrl || "",
+      planListUrl: basic.planListUrl || "",
+      hotelSpecial: basic.hotelSpecial || "",
+      hotelMinCharge: basic.hotelMinCharge ?? null,
+      address: [basic.address1, basic.address2].filter(Boolean).join(""),
+      access: basic.access || "",
+      parkingInformation: basic.parkingInformation || "",
+      hotelImageUrl: basic.hotelImageUrl || "",
+      hotelThumbnailUrl: basic.hotelThumbnailUrl || "",
+      reviewAverage: basic.reviewAverage ?? null,
+      reviewCount: basic.reviewCount ?? null
+    });
+  }
+  return hotels;
+}
+
+async function handleRakutenHotelSearch(request, env) {
+  if (!requireAuth(request, env)) return unauthorized();
+
+  if (!env.RAKUTEN_APPLICATION_ID || !env.RAKUTEN_ACCESS_KEY) {
+    return json({ error: "Rakuten API secrets are not configured" }, { status: 500 });
+  }
+
+  const url = new URL(request.url);
+  const keyword = (url.searchParams.get("keyword") || "").trim();
+  if (keyword.length < 2) {
+    return json({ error: "keyword must be at least 2 characters" }, { status: 400 });
+  }
+
+  const params = new URLSearchParams({
+    applicationId: env.RAKUTEN_APPLICATION_ID,
+    format: "json",
+    formatVersion: "2",
+    keyword,
+    searchField: "1",
+    hits: "10",
+    responseType: "middle",
+    hotelThumbnailSize: "3"
+  });
+  if (env.RAKUTEN_AFFILIATE_ID) params.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
+
+  const apiUrl = "https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20260731?" + params.toString();
+  const r = await fetch(apiUrl, {
+    headers: {
+      "accept": "application/json",
+      "accessKey": env.RAKUTEN_ACCESS_KEY
+    }
+  });
+
+  const text = await r.text();
+  let data = {};
+  try { data = JSON.parse(text); } catch {
+    return json({ error: "Rakuten API returned non-JSON response", status: r.status }, { status: 502 });
+  }
+
+  if (!r.ok) {
+    return json({ error: "Rakuten API error", status: r.status, details: data }, { status: 502 });
+  }
+
+  const hotels = normalizeRakutenHotels(data);
+  return json({
+    ok: true,
+    affiliateEnabled: !!env.RAKUTEN_AFFILIATE_ID,
+    count: hotels.length,
+    hotels
+  });
+}
+
 async function handleApi(request, env) {
   const url = new URL(request.url);
   const db = env.DB;
@@ -422,6 +514,16 @@ function adminPage() {
       </div>
       <div class="field"><label>実用情報（カンマ区切り）</label><input id="practical" class="input"></div>
       <h3>アフィリエイト</h3>
+      <div class="panel" style="margin:12px 0;background:#fbfffd">
+        <h3 style="margin-top:0">🟥 楽天ホテル検索</h3>
+        <p class="small">ホテル名を入力 → 楽天トラベルAPIで検索 → 候補を選ぶとアフィリエイトURLを自動入力します。</p>
+        <div class="row">
+          <div class="field"><input id="rakutenKeyword" class="input" placeholder="例：杉乃井ホテル"></div>
+          <div class="field"><button id="rakutenSearchBtn" class="btn" type="button">楽天で検索</button></div>
+        </div>
+        <div id="rakutenSearchStatus" class="small"></div>
+        <div id="rakutenResults"></div>
+      </div>
       <div class="field"><label>楽天トラベルURL</label><input id="rakuten" class="input"></div>
       <div class="field"><label>じゃらんURL</label><input id="jalan" class="input"></div>
       <div class="field"><label>Yahoo!トラベルURL</label><input id="yahoo" class="input"></div>
@@ -510,6 +612,45 @@ function adminPage() {
     $("premiumStatus").textContent="更新完了: "+d.updated+"/"+d.total+"件"+(d.missing&&d.missing.length?" / 見つからないID: "+d.missing.join(", "):"");
     loadArticles();
   };
+
+  $("rakutenSearchBtn").onclick=async function(){
+    var kw=$("rakutenKeyword").value.trim();
+    if(kw.length<2){$("rakutenSearchStatus").textContent="ホテル名を2文字以上入力してください。";return;}
+    $("rakutenSearchStatus").textContent="楽天トラベルを検索中...";
+    $("rakutenResults").innerHTML="";
+    var r=await fetch("/api/rakuten-hotels?keyword="+encodeURIComponent(kw),{headers:headers()});
+    var d=await r.json().catch(function(){return {};});
+    if(!r.ok){
+      $("rakutenSearchStatus").textContent="検索失敗: HTTP "+r.status+" "+(d.error||"");
+      return;
+    }
+    $("rakutenSearchStatus").textContent=d.count+"件見つかりました。"+(d.affiliateEnabled?" アフィリエイトURL対応済み。":" ※Affiliate ID未設定のため通常URLです。");
+    var rows=d.hotels||[];
+    $("rakutenResults").innerHTML=rows.map(function(h,i){
+      var price=h.hotelMinCharge?(" / 最安目安 "+Number(h.hotelMinCharge).toLocaleString()+"円〜"):"";
+      var rating=h.reviewAverage?(" / ★"+h.reviewAverage):"";
+      var img=h.hotelThumbnailUrl?('<img src="'+h.hotelThumbnailUrl.replace(/"/g,"&quot;")+'" alt="" style="width:86px;height:64px;object-fit:cover;border-radius:10px">'):"";
+      return '<div style="display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid #d8e6df">'+img+
+        '<div style="flex:1"><b>'+escapeHtmlClient(h.hotelName)+'</b><div class="small">'+escapeHtmlClient(h.address||"")+price+rating+'</div></div>'+
+        '<button type="button" class="btn sub rakutenUseBtn" data-i="'+i+'">このホテルを使う</button></div>';
+    }).join("") || "<p>候補がありません。</p>";
+    Array.from(document.querySelectorAll(".rakutenUseBtn")).forEach(function(b){
+      b.onclick=function(){
+        var h=rows[Number(b.dataset.i)];
+        $("rakuten").value=h.hotelInformationUrl||h.planListUrl||"";
+        if(!$("coverImage").value && (h.hotelImageUrl||h.hotelThumbnailUrl)){
+          $("coverImage").value=h.hotelImageUrl||h.hotelThumbnailUrl;
+          if(typeof updatePreview==="function") updatePreview();
+        }
+        if(!$("coverAlt").value) $("coverAlt").value=h.hotelName||"";
+        $("rakutenSearchStatus").textContent="選択しました："+h.hotelName+"。記事を保存すると反映されます。";
+      };
+    });
+  };
+  function escapeHtmlClient(v){
+    return String(v||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});
+  }
+
   if(!$("date").value) $("date").value=new Date().toISOString().slice(0,10);
   boot();
 })();
@@ -541,6 +682,7 @@ export default {
     try {
       const url = new URL(request.url);
       if (url.pathname === "/api/articles") return await handleApi(request, env);
+      if (url.pathname === "/api/rakuten-hotels") return await handleRakutenHotelSearch(request, env);
       if (url.pathname === "/api/premium-articles") return await upgradePremiumArticles(request, env);
       if (url.pathname === "/__diag") {
         if (!env.DB) return json({ ok: false, error: "D1 binding DB is not configured" }, { status: 500 });

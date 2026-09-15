@@ -1,21 +1,13 @@
 事前検証済み
 
-- premium route: OK
-- premium admin button: OK
-- 7 article ids: OK
-- auth retained: OK
-- D1 retained: OK
-- home route retained: OK
-- diag retained: OK
+- 楽天検索ルート: OK
+- 2026-07-31 API: OK
+- Application ID: OK
+- Access Key: OK
+- Affiliate ID: OK
+- 管理画面検索ボタン: OK
+- URL自動入力: OK
+- 管理認証: OK
 - node --check: OK
-- mock D1 batch update: OK
 
-- beppu-family-hotel: 2167文字 / 見出し14個
-- aso-family-drive: 1657文字 / 見出し9個
-- fukuoka-rainy-day: 2091文字 / 見出し14個
-- nagasaki-family-gourmet: 1730文字 / 見出し12個
-- miyazaki-baby-trip: 1745文字 / 見出し14個
-- kagoshima-family-spot: 1580文字 / 見出し11個
-- saga-onsen-family: 1735文字 / 見出し11個
-
-premium update route OK {"ok":true,"updated":7,"total":7,"missing":[],"errors":[]}
+※楽天API実接続だけはCloudflareに登録された秘密値をこちらから参照できないため、デプロイ後に1回検索して最終確認します。
