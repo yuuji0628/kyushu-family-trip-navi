@@ -1,14 +1,15 @@
 事前検証済み
 - Worker syntax: OK
-- recursive image collection: OK
-- gallery normalized: OK
-- room gallery: OK
-- meal gallery: OK
-- pool gallery: OK
-- bath gallery: OK
-- facility gallery: OK
-- no wrong room fallback: OK
-- high-res sizing: OK
+- meal overrides room: OK
+- room classification is last: OK
+- explicit room URL not blindly trusted: OK
+- strict verified room images: OK
+- meal excluded from room: OK
+- pool excluded from room: OK
+- bath excluded from room: OK
+- ambiguous gallery retained: OK
+- all remaining photos retained: OK
+- full gallery retained: OK
 - variation retained: OK
 - family design retained: OK
 - native hotel search retained: OK
@@ -20,4 +21,4 @@
 - Cron retained: OK
 - node --check: OK
 
-※ 本番楽天APIの画像返却内容はCloudflareのSecretsが必要なため、ローカルではライブ取得していません。
+※ 実画像の視覚内容をAI画像認識しているわけではないため、URL/レスポンス情報で安全に分類できないものは『楽天掲載写真』へ回します。
