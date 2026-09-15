@@ -1,13 +1,8 @@
 事前検証済み
-- Worker syntax: OK
-- Image proxy route: OK
-- Secure allowlist: OK
-- Rakuten referer: OK
-- Retry without referer: OK
-- Image content-type validation: OK
-- Fallback SVG: OK
-- Existing D1 images use proxy: OK
-- Future collector restricted: OK
+- node --check: OK
+- Direct first renderer: OK
+- Proxy fallback: OK
+- Proxy route retained: OK
 - SEO MAX retained: OK
 - Photo-driven retained: OK
 - Family design retained: OK
@@ -18,6 +13,5 @@
 - GitHub retained: OK
 - D1 retained: OK
 - Cron retained: OK
-- node --check: OK
 
-※ 楽天側の実画像URLへの本番フェッチはCloudflare Worker上で動作するため、ローカルではライブ検証していません。
+※ 本番の楽天画像URLそのものの表示可否はCloudflare/楽天側条件に依存するため、ローカルではライブ表示未確認です。
