@@ -1,16 +1,18 @@
-v7.6.1｜記事作成ボタンをJavaScript非依存に変更
+v7.6.2｜Cloudflare Build エラー修正版
 
-- 上部「今すぐ1記事作成」を通常フォーム送信へ変更
-- 下部「今すぐ1記事を自動作成」も通常フォーム送信へ変更
-- POST /admin-auto-create をWorker側で処理
-- Workerが autoCreateKyushuHotelArticle(env) を直接実行
-- 成功 / スキップ / エラーをサーバー描画で表示
-- 旧JavaScriptのボタンIDとは別IDにして干渉を防止
+原因:
+v7.6.1 の worker.js 最終行に
+.inlineNativeForm{margin:0;display:inline-flex}
+というCSSがJavaScriptの外側へ出ており、
+Wranglerが worker.js:2974:0 Unexpected "." でビルド停止していました。
 
-維持:
-Native Login / Server Render / 記事編集・削除 / 楽天ホテル検索 /
-GitHub ZIP / 写真付き記事 / D1 / 楽天API / GitHub / Cron
+修正:
+- 上記CSSをworker.js末尾から削除
+- CSSテンプレート内部へ正しく移動
+- Native記事作成フォームは維持
+- Server Render / Native Login / 記事編集削除 / GitHub ZIP /
+  楽天API / D1 / Cron / 写真付き記事を維持
 
 反映後:
-dashboard v7.6.1 / NATIVE CREATE
+dashboard v7.6.2 / BUILD FIX
 と表示されます。
