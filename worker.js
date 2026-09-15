@@ -851,6 +851,76 @@ function varyHotelArticleContent(markdown, seed, hotel) {
   ].filter(Boolean).join("\n\n");
 }
 
+
+function buildPhotoDrivenFamilySections({
+  name, roomImages=[], mealImages=[], poolImages=[], bathImages=[],
+  facilityImages=[], planImages=[], otherImages=[], photoGalleryBlock
+}) {
+  const sections = [];
+
+  if (roomImages.length) sections.push(`## 写真から見る｜家族で泊まる客室
+
+${photoGalleryBlock(roomImages, "客室・内装", "客室・内装の写真です。")}
+
+子連れでは、客室の豪華さより「家族全員がどう過ごすか」を想像するのが大切です。ベッドの配置、荷物を広げる余裕、洗面まわり、子どもを寝かせたあとに大人が動けそうかまで写真から見ておくと、到着後のイメージがかなり具体的になります。
+
+赤ちゃん連れなら寝かしつけや添い寝、幼児ならベッドからの転落、小学生以上なら人数分の寝具を置いたときの余裕まで確認したいところです。
+
+> CHECK: 定員・寝具・添い寝条件・禁煙喫煙・バスとトイレの仕様は、予約プランでも確認しておきましょう。`);
+
+  if (mealImages.length) sections.push(`## 写真から見る｜子どもと楽しむ食事
+
+${photoGalleryBlock(mealImages, "食事・朝食・レストラン", "食事・レストランの写真です。")}
+
+家族旅行では、食事の満足度がホテル選びを大きく左右します。料理の種類が多そうなら、好き嫌いがある子でも選びやすいのがうれしいポイント。ビュッフェなら「自分で選ぶ楽しさ」もあります。
+
+小さな子どもがいる場合は、料理だけでなく食事時間、会場までの移動、子ども用椅子、取り分けやすさも見ておくと安心です。
+
+> POINT: 夕食付きは移動を減らせるので幼児連れと相性がよく、朝食は翌朝の出発時間と合わせて考えるのがおすすめです。`);
+
+  if (poolImages.length) sections.push(`## 写真から見る｜プール・水遊びをどれくらい楽しめそう？
+
+${photoGalleryBlock(poolImages, "プール・水遊び施設", "プール・水遊び施設の写真です。")}
+
+プールがあるホテルは、子どもにとってホテルそのものが旅の目的になりやすいです。観光を詰め込みすぎず、ホテルで遊ぶ時間を確保すると家族全員の負担も減らせます。
+
+写真では広さだけでなく、浅い場所、休憩スペース、保護者が見守りやすそうかもチェックしたいところです。
+
+> CHECK: 営業期間・利用時間・年齢制限・水遊び用パンツ・浮き輪のルールは予約前に確認してください。`);
+
+  if (bathImages.length) sections.push(`## 写真から見る｜お風呂・温泉は子連れでも使いやすそう？
+
+${photoGalleryBlock(bathImages, "温泉・お風呂", "温泉・浴場の写真です。")}
+
+温泉や大浴場が魅力のホテルなら、家族旅行では「誰が子どもと入るか」まで考えておくと当日がスムーズです。赤ちゃん・幼児連れなら、客室のお風呂と大浴場を使い分けられると助かります。
+
+写真から洗い場や浴槽までの動線を想像しておくと、子ども連れで使う場面がイメージしやすくなります。
+
+> POINT: 観光を早めに切り上げてお風呂の時間をゆっくり取ると、子どもの就寝時間も崩れにくくなります。`);
+
+  if (facilityImages.length) sections.push(`## 写真から見る｜館内でどう過ごせそう？
+
+${photoGalleryBlock(facilityImages, "館内・施設", "館内・施設の写真です。")}
+
+子連れ旅行では、ホテルに着いてからの「ちょっとした移動」も意外と負担です。館内写真から、ロビーの広さ、休めそうな場所、ベビーカーで動きやすそうかなどを想像しておくと安心です。
+
+雨の日や子どもが疲れた日には、館内で過ごせる場所があるだけで予定を無理に詰め込まずに済みます。`);
+
+  if (planImages.length) sections.push(`## 写真から見る｜宿泊プランの雰囲気
+
+${photoGalleryBlock(planImages, "宿泊プラン・施設", "宿泊プラン・施設の写真です。")}
+
+家族旅行では、写真だけでなく食事の有無、子ども料金、寝具、利用できる施設がプランに含まれているかまで合わせて確認すると失敗しにくいです。`);
+
+  if (otherImages.length) sections.push(`## 写真でもう少し見る｜${name}の雰囲気
+
+${photoGalleryBlock(otherImages, "ホテル写真", "ホテル選びの参考になる写真です。")}
+
+写真を家族で一緒に見ながら「ここで何をしたい？」と話してみると、客室・食事・遊び・観光のどれを優先するか決めやすくなります。`);
+
+  return sections.join("\n\n");
+}
+
 function buildFamilyHotelArticle(hotel) {
   const name = String(hotel.hotelName || "ホテル").trim();
   const address = String(hotel.address || "").trim();
@@ -955,6 +1025,18 @@ function buildFamilyHotelArticle(hotel) {
     ).join("");
   };
 
+  const photoDrivenSections = buildPhotoDrivenFamilySections({
+    name,
+    roomImages: articleRoomImages,
+    mealImages: articleMealImages,
+    poolImages: articlePoolImages,
+    bathImages: articleBathImages,
+    facilityImages: articleFacilityImages,
+    planImages: articlePlanImages,
+    otherImages: [...articleOtherImages, ...articleAllRemainingImages],
+    photoGalleryBlock
+  });
+
 const localHints = {
     "福岡県":["市街地観光と組み合わせやすい","食事の選択肢を広げやすい","公共交通中心でも旅程を作りやすい"],
     "佐賀県":["温泉やドライブ旅と相性がいい","移動を詰め込みすぎない旅程が合いやすい","車移動の家族旅行に向きやすい"],
@@ -977,6 +1059,7 @@ const localHints = {
     `${name}の子連れ宿泊ガイド｜料金・口コミ・アクセスを家族目線でチェック`,
     `${pref}で${name}を選ぶ前に｜子ども連れで見るべきポイントまとめ`
   ], seed);
+  const usablePhotoCount = allImages.filter(x => !x.isThumbnail).length;
   const verdict = ratingNum >= 4.5 && reviewNum >= 100
     ? `数字だけを見るとかなり強い候補です。${rating}、口コミ${reviews}という組み合わせは、評価の高さと母数の両方を確認できます。`
     : ratingNum >= 4.2
@@ -998,6 +1081,7 @@ ${photoGalleryBlock(heroImages, "外観・施設", "ホテルの外観・施設�
 - 最安料金目安：${price}
 - 楽天評価：${rating}
 - 口コミ：${reviews}
+${usablePhotoCount ? `- 掲載写真：${usablePhotoCount}枚` : ""}
 ${detailedScoreParts.length ? `- 評価内訳：${detailedScoreParts.join(" / ")}` : ""}
 ${hotel.checkinTime ? `- チェックイン：${hotel.checkinTime}` : ""}
 ${hotel.checkoutTime ? `- チェックアウト：${hotel.checkoutTime}` : ""}
@@ -1005,31 +1089,15 @@ ${hotel.checkoutTime ? `- チェックアウト：${hotel.checkoutTime}` : ""}
 
 ${special ? `楽天トラベルの施設紹介には「${special}」とあります。これは宿の個性をつかむヒントになります。` : ""}
 
-## 客室・内装を写真でチェック
+${photoDrivenSections || `## 家族で泊まる前に確認したいこと
 
-${articleRoomImages.length ? photoGalleryBlock(articleRoomImages, "客室・内装", "客室・内装の写真です。部屋タイプによって広さや設備は異なります。") : `*客室タイプによって内装や広さが異なるため、予約ページでも部屋ごとの写真をご確認ください。*\n\n`}
-子連れでは、客室の豪華さよりも「荷物を広げても動きやすいか」「寝かしつけしやすいか」「誰がどこで寝るか」を想像して選ぶのが大切です。
+客室・食事・館内設備の写真は宿泊プランによって掲載状況が異なります。家族旅行では、写真だけでなく定員・寝具・食事条件・子ども料金まで合わせて確認しておくと安心です。`}
 
-> CHECK: 客室写真だけで決めず、定員・寝具・禁煙喫煙・バス・トイレ・添い寝条件まで確認してください。
+## 家族目線ならここから見る
 
-## 館内施設・温泉・プールを確認
+子連れホテル選びで大事なのは、設備の数より「家族の一日が無理なく回るか」です。
 
-${photoGalleryBlock(articlePoolImages, "プール・水遊び施設", "プール・水遊び施設の写真です。")}
-${photoGalleryBlock(articleBathImages, "温泉・お風呂", "温泉・浴場の写真です。")}
-${photoGalleryBlock(articleFacilityImages, "館内・施設", "館内・施設の写真です。")}
-${hasPool ? `施設紹介からプール・水遊び系の設備が確認できるホテルです。子どもが楽しみにしやすいポイントなので、営業期間・対象年齢・水遊び用パンツ・浮き輪などの条件を予約前に確認しておくと安心です。なお、プール専用写真を判別できない場合は、誤った写真を載せないため施設写真のみ掲載します。` : ""}
-${hasOnsen ? `温泉・大浴場系の設備があるホテルなら、観光を詰め込みすぎず「ホテルでゆっくりする時間」を旅程に入れると満足度が上がりやすいです。` : ""}
-${hasKids ? `キッズ・ファミリー向け設備が案内されている場合は、対象年齢と利用時間を確認しておくと、子どもの昼寝や夕食時間と合わせやすくなります。` : ""}
-
-${photoGalleryBlock(articlePlanImages, "宿泊プラン・施設", "宿泊プラン・施設の写真です。")}
-${photoGalleryBlock(articleOtherImages, "楽天掲載写真", "ホテルの雰囲気がわかる写真です。")}
-${photoGalleryBlock(articleAllRemainingImages, "その他の楽天掲載写真", "ホテル選びの参考になる写真です。")}
-
-## 編集部ならここから見る
-
-ホテル選びで大事なのは、情報の多さではなく“何を優先するか”です。
-
-${name}なら、①到着までの移動、②子どもの年齢に合う客室・食事、③家族全員の総額、④口コミの偏り、⑤キャンセル条件、の順に見ます。
+${name}なら、①到着後すぐ休めるか、②子どもが食べられるものがあるか、③お風呂やプールを無理なく使えるか、④家族全員の寝具を確保できるか、⑤総額が予算内か、の順で見ると決めやすくなります。
 
 ## ${pref}旅行の中でどう使うホテルか
 
@@ -1053,7 +1121,7 @@ ${pricePerspective(priceNum)}という価格感なので、条件が合えば候
 
 楽天評価は${rating}、口コミは${reviews}です。
 
-0〜2歳ならベビーカーや添い寝、3〜6歳なら夕食時間や館内移動、小学生なら朝食や周辺観光への動きやすさを見ると参考になります。
+0〜2歳なら添い寝・お風呂・離乳食まわり、3〜6歳なら夕食時間・館内移動・遊べる設備、小学生なら朝食・プール・周辺観光への動きやすさを見ると、自分たちに近い家族の口コミを拾いやすくなります。
 
 ## 年齢別に見る確認ポイント
 
@@ -1069,19 +1137,11 @@ ${pricePerspective(priceNum)}という価格感なので、条件が合えば候
 
 本人にもホテル写真を見せて、客室・食事・周辺観光のどれを楽しみにしているか聞いてみると、家族の優先順位が見えます。
 
-## 食事・朝食・レストランを写真で確認
+## 食事プランは家族の予定に合わせて選ぶ
 
-${articleMealImages.length ? photoGalleryBlock(articleMealImages, "食事・朝食・レストラン", "食事・レストランの写真です。") : `*食事内容は宿泊プランや時期によって変わるため、予約ページで最新のメニュー・提供形式をご確認ください。*\n\n`}
+小さな子どもがいるなら、ホテル内で夕食まで完結するプランは移動を減らせてかなり楽です。一方、周辺グルメも楽しみたい家庭なら朝食のみや素泊まりが合うこともあります。
 
-朝食・夕食は、子どもの年齢や食べられるものによってホテル選びの満足度が大きく変わります。バイキング形式か、会場までの移動、子ども用メニューや椅子の有無なども確認したいポイントです。
-
-## 食事付きか素泊まりか
-
-小さな子どもがいるなら、ホテル内で夕食まで完結するプランはかなり楽です。一方、周辺グルメを楽しみたい家庭なら朝食のみや素泊まりが合うこともあります。
-
-## 客室は“広さ”より“寝かせ方”
-
-赤ちゃんや幼児ならベッドの高さや配置、小学生を含む家族ならベッド数や布団条件まで確認します。
+食事写真が掲載されているホテルなら、子どもが食べられそうなものを家族で一緒に見ておくと、当日の楽しみも増えます。
 
 ## 1泊2日ならこのくらいが現実的
 
@@ -1944,7 +2004,9 @@ function rakutenImageCategory(path = "", url = "") {
 function collectRakutenImages(node, path = "", out = []) {
   if (!node) return out;
   if (typeof node === "string") {
-    if (/^https?:\/\//i.test(node) && /\.(?:jpe?g|png|webp)(?:\?|$)/i.test(node)) {
+    const imageLikePath = /image|photo|picture|thumbnail|img|画像|写真/i.test(path);
+    const imageLikeUrl = /\.(?:jpe?g|png|webp|avif)(?:\?|$)/i.test(node) || /image|photo|picture/i.test(node);
+    if (/^https?:\/\//i.test(node) && (imageLikePath || imageLikeUrl)) {
       out.push({ url:node, category:rakutenImageCategory(path, node), path });
     }
     return out;
@@ -2468,7 +2530,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.0.1 / READER CLEAN</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.1.0 / PHOTO-DRIVEN FAMILY</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2542,7 +2604,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.0.1</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.1.0</div>
       </form>
     </section>
 
@@ -2630,7 +2692,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.0.1</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.1.0</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
