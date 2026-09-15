@@ -1,15 +1,28 @@
-v7.4.1｜記事編集・削除ボタン修正版
+v7.5.0｜管理画面 全機能再チェック版
+
+根本原因:
+「既存記事の品質アップデート」を画面から削除した後も、
+premiumBtn / premiumStatus の古いJavaScriptだけが残っていました。
+存在しないpremiumBtnに .onclick を設定したところでJavaScriptが停止し、
+その後に設定される楽天ホテル検索・下側の記事自動作成などが反応しなくなっていました。
 
 修正:
-- 記事一覧の「編集」を独立処理に変更
-- 「削除」ボタンを追加
-- 削除前に確認ダイアログ
-- 既存DELETE APIを利用してD1から削除
-- 削除後に記事一覧とダッシュボードを自動更新
-- iPhoneで押しやすい44px以上のボタンサイズ
-- ボタンを前面(z-index)にしてタップを妨げにくくした
-- 写真付き自動記事、GitHub ZIP、楽天API、D1、Cronは維持
+- premiumBtn / premiumStatus の旧JavaScriptを完全削除
+- 上部と下部の記事自動作成ボタンを独立処理化
+- 45秒タイムアウトと具体的エラー表示
+- optionalなボタンのイベント登録は、要素が存在するときだけ行う
+- 編集 / 削除 / 保存 / 新規 / 楽天ホテル検索 / GitHub ZIPを維持
+- 写真付き自動記事、D1、楽天API、GitHub Secret、Cronを維持
+
+再チェック:
+- worker.js構文チェック
+- 管理画面内inline JavaScriptを個別構文チェック
+- 存在しないDOM参照 0件
+- 固定ID付きボタンの未接続 0件
+- 主要ボタン11個の存在確認
+- 主要API / D1 / Secret / Cron / 写真記事機能の保持確認
 
 反映後:
-article list v7.4.1
+dashboard v7.5.0 / UI AUDIT OK
+article list v7.5.0
 と表示されます。
