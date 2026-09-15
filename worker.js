@@ -570,7 +570,7 @@ async function articlePage(env, url) {
   const related = relatedAll.filter(x => x.id !== a.id).slice(0,3);
   const relatedHtml = related.length ? `<section class="relatedBox familyRelated"><div class="familySectionTitle"><span>👑</span><h2>${esc(area)}の関連記事</h2></div><div class="relatedGrid">${related.map(x => `<a href="/article.html?id=${encodeURIComponent(x.id)}"><b>${esc(x.title)}</b><span>${esc(x.excerpt || "")}</span></a>`).join("")}</div></section>` : "";
 
-  const authorBox = `<section class="authorBox familyAuthor"><div class="familyAuthorIcon">👨‍👩‍👧‍👦</div><div><b>九州ファミリー旅ナビ編集部</b><p>公開情報を確認し、子連れ旅行で役立つポイントを家族目線で整理しています。実際に訪問していない施設について宿泊体験を装う表現は使用しません。</p><a href="/editorial-policy.html">編集方針・情報源について</a></div></section>`;
+  const authorBox = `<section class="authorBox familyAuthor"><div class="familyAuthorIcon">👨‍👩‍👧‍👦</div><div><b>九州ファミリー旅ナビ編集部</b><p>子連れ旅行で役立つ情報を、家族目線でわかりやすく整理しています。</p><a href="/editorial-policy.html">編集方針・情報源について</a></div></section>`;
 
   const topRakutenCta = a.affiliate.rakuten ? `<section class="familyBooking"><div class="familyBookingIcon">📅</div><div class="familyBookingText"><small>PR｜アフィリエイトリンクを含みます</small><b>${isHotel ? "楽天トラベルで空室・料金をチェック" : "楽天トラベルで最新情報をチェック"}</b><span>家族の予定に合うプランを先に確認しておくと安心です。</span></div><a rel="sponsored noopener" target="_blank" href="${esc(a.affiliate.rakuten)}">確認する →</a></section>` : "";
 
@@ -593,7 +593,7 @@ async function articlePage(env, url) {
 
     <article class="articleBody familyArticleBody"><p>${markdownLite(a.content)}</p></article>
 
-    ${affiliateLinks ? `<section class="affiliate familyAffiliate"><div class="familySectionTitle"><span>🧳</span><h2>旅行予約をチェック</h2></div><div class="familyAffiliateButtons">${affiliateLinks}</div><div class="small">PR｜リンクにはアフィリエイトを含みます。料金・空室・条件はリンク先で最新情報をご確認ください。</div></section>` : ""}
+    ${affiliateLinks ? `<section class="affiliate familyAffiliate"><div class="familySectionTitle"><span>🧳</span><h2>旅行予約をチェック</h2></div><div class="familyAffiliateButtons">${affiliateLinks}</div><div class="small">PR｜アフィリエイトリンクを含みます。料金・空室・条件はリンク先でご確認ください。</div></section>` : ""}
     ${authorBox}
     ${relatedHtml}
   </main>`;
@@ -1055,13 +1055,7 @@ ${name}は、${pref}の家族旅行で比較候補に入れやすいホテルで
 
 記事内の楽天トラベルリンクから、最新料金・空室・プラン条件を確認できます。
 
----
-
-**編集方針と情報源**  
-この記事は${checked}時点で楽天トラベルAPIから取得した施設情報を基礎資料とし、九州ファミリー旅ナビ編集部が家族旅行の判断材料を加えて編集しています。実際に宿泊したと誤認させる体験談は掲載していません。
-
-**広告について**  
-この記事にはアフィリエイトリンクを含みます。リンク経由の予約で当サイトに報酬が発生する場合がありますが、読者の予約料金が上乗せされるものではありません。`;
+`;
 
   const content = varyHotelArticleContent(baseContent, seed, hotel);
 
@@ -2413,7 +2407,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.9.1 / PHOTO CLASSIFY FIX</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.9.2 / CLEAN ARTICLE FOOTER</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2487,7 +2481,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.9.1</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.9.2</div>
       </form>
     </section>
 
@@ -2575,7 +2569,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.9.1</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.9.2</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
