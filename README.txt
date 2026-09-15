@@ -1,18 +1,22 @@
-v7.6.2｜Cloudflare Build エラー修正版
+v7.6.3｜記事内写真の誤表示・重複修正版
 
-原因:
-v7.6.1 の worker.js 最終行に
-.inlineNativeForm{margin:0;display:inline-flex}
-というCSSがJavaScriptの外側へ出ており、
-Wranglerが worker.js:2974:0 Unexpected "." でビルド停止していました。
+スクリーンショットで確認できた問題:
+- 外観写真が「客室・内装」として表示されていた
+- 同じ外観写真が客室・館内施設・滞在イメージで何度も繰り返されていた
+- プール専用写真が無いのに、写真がプール写真のように見える構成になっていた
 
 修正:
-- 上記CSSをworker.js末尾から削除
-- CSSテンプレート内部へ正しく移動
-- Native記事作成フォームは維持
-- Server Render / Native Login / 記事編集削除 / GitHub ZIP /
-  楽天API / D1 / Cron / 写真付き記事を維持
+- 同一画像URLは記事内で1回だけ表示
+- 客室セクションは roomImageUrl / roomThumbnailUrl が取得できた時だけ客室写真として表示
+- 客室写真が無い場合は、外観写真で代用しない
+- 汎用ホテル画像は「施設イメージ」としてのみ表示
+- プール・温泉の文章は施設情報から作るが、写真を勝手にプール写真・温泉写真と断定しない
+- 画像が足りなければ無理に4枚埋めない
+
+既存機能:
+Native Login / Native記事作成 / Server Render / 記事編集削除 /
+GitHub ZIP / 楽天API / D1 / Cron を維持
 
 反映後:
-dashboard v7.6.2 / BUILD FIX
+dashboard v7.6.3 / PHOTO QUALITY
 と表示されます。
