@@ -202,6 +202,11 @@ details.adminFold{border:1px solid var(--line);border-radius:22px;background:#ff
 details.adminFold>summary{list-style:none;cursor:pointer;padding:19px 22px;font-weight:900;display:flex;justify-content:space-between;align-items:center;gap:14px}details.adminFold>summary::-webkit-details-marker{display:none}
 details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}details.adminFold[open]>summary:after{content:"−"}details.adminFold>.foldBody{border-top:1px solid var(--soft);padding:4px 22px 22px}
 .smartNotice{padding:12px 14px;border:1px solid #cfe4db;background:#f4fbf8;border-radius:14px;font-size:13px}
+.githubUploadBox{border:1px dashed #b8d7ca;background:#fbfefd;border-radius:18px;padding:18px}
+.githubUploadMeta{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0;font-size:12px;color:var(--muted)}
+.progressTrack{height:9px;background:#e9f1ed;border-radius:999px;overflow:hidden;margin-top:12px}
+.progressBar{height:100%;width:0;background:#168861;transition:width .25s ease}
+
 .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.small{font-size:13px;color:var(--muted)}.status{padding:10px 14px;border-radius:10px;background:var(--soft);margin:12px 0}.preview{margin-top:10px;border:1px dashed var(--line);border-radius:14px;min-height:90px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted)}.preview img{width:100%;max-height:260px;object-fit:cover}
 .notice{padding:14px 16px;border-radius:12px;background:#fff8d8;border:1px solid #f2e29d}
 .rakutenResultCard{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 0;border-bottom:1px solid var(--line)}
@@ -915,6 +920,112 @@ async function autoCreateKyushuHotelArticle(env, options = {}) {
 }
 
 
+
+const GITHUB_REPO_FULL_NAME = "yuuji0628/kyushu-family-trip-navi";
+const GITHUB_DEFAULT_BRANCH = "main";
+
+function githubHeaders(env) {
+  return {
+    "accept": "application/vnd.github+json",
+    "authorization": "Bearer " + env.GITHUB_TOKEN,
+    "x-github-api-version": "2022-11-28",
+    "user-agent": "kyushu-family-trip-navi-worker"
+  };
+}
+
+async function githubRequest(env, path, options = {}) {
+  if (!env.GITHUB_TOKEN) {
+    return { ok:false, status:500, data:{ error:"GITHUB_TOKEN is not configured" } };
+  }
+  const url = "https://api.github.com/repos/" + GITHUB_REPO_FULL_NAME + path;
+  const r = await fetch(url, {
+    ...options,
+    headers:{ ...githubHeaders(env), ...(options.headers || {}) }
+  });
+  const text = await r.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw:text }; }
+  return { ok:r.ok, status:r.status, data };
+}
+
+async function handleGithubStatus(request, env) {
+  if (!requireAuth(request, env)) return unauthorized();
+  if (!env.GITHUB_TOKEN) {
+    return json({
+      ok:false,
+      configured:false,
+      repository:GITHUB_REPO_FULL_NAME,
+      branch:GITHUB_DEFAULT_BRANCH,
+      error:"GITHUB_TOKEN が未設定です"
+    });
+  }
+
+  const r = await githubRequest(env, "");
+  return json({
+    ok:r.ok,
+    configured:true,
+    repository:GITHUB_REPO_FULL_NAME,
+    branch:GITHUB_DEFAULT_BRANCH,
+    status:r.status,
+    repositoryName:r.data?.full_name || GITHUB_REPO_FULL_NAME,
+    error:r.ok ? "" : (r.data?.message || "GitHub connection failed")
+  }, { status:r.ok ? 200 : 502 });
+}
+
+async function handleGithubFileUpload(request, env) {
+  if (!requireAuth(request, env)) return unauthorized();
+  if (request.method !== "POST") return json({ error:"Method not allowed" }, { status:405 });
+  if (!env.GITHUB_TOKEN) return json({ error:"GITHUB_TOKEN が未設定です" }, { status:500 });
+
+  const body = await request.json().catch(() => ({}));
+  const path = String(body.path || "").replace(/^\/+/, "");
+  const contentBase64 = String(body.contentBase64 || "");
+  const message = String(body.message || "Admin ZIP deploy").slice(0, 200);
+  const branch = String(body.branch || GITHUB_DEFAULT_BRANCH);
+
+  if (!path || !contentBase64) return json({ error:"path / contentBase64 が必要です" }, { status:400 });
+  if (path.includes("..") || path.startsWith(".git/") || path === ".git") {
+    return json({ error:"許可されていないパスです" }, { status:400 });
+  }
+  if (contentBase64.length > 12_000_000) {
+    return json({ error:"1ファイルが大きすぎます" }, { status:413 });
+  }
+
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  const get = await githubRequest(env, "/contents/" + encodedPath + "?ref=" + encodeURIComponent(branch), { method:"GET" });
+
+  let sha = "";
+  if (get.ok) sha = String(get.data?.sha || "");
+  else if (get.status !== 404) {
+    return json({ error:"GitHubファイル確認失敗", githubStatus:get.status, details:get.data?.message || "" }, { status:502 });
+  }
+
+  const payload = { message, content:contentBase64, branch };
+  if (sha) payload.sha = sha;
+
+  const put = await githubRequest(env, "/contents/" + encodedPath, {
+    method:"PUT",
+    headers:{ "content-type":"application/json" },
+    body:JSON.stringify(payload)
+  });
+
+  if (!put.ok) {
+    return json({
+      error:"GitHub更新失敗",
+      path,
+      githubStatus:put.status,
+      details:put.data?.message || ""
+    }, { status:502 });
+  }
+
+  return json({
+    ok:true,
+    path,
+    created:!sha,
+    commitSha:put.data?.commit?.sha || ""
+  });
+}
+
 async function handleAdminDashboard(request, env) {
   if (!requireAuth(request, env)) return unauthorized();
   if (!env.DB) return json({ error:"D1 binding DB is not configured" }, { status:500 });
@@ -1340,7 +1451,31 @@ function adminPage() {
           <button id="jumpArticleEditor" class="quickBtn" type="button">✍️<b>記事編集</b><span>記事を手動編集</span></button>
           <button id="jumpArticleList" class="quickBtn" type="button">📚<b>記事一覧</b><span>既存記事を確認</span></button>
           <button id="jumpQuality" class="quickBtn" type="button">✨<b>品質更新</b><span>既存記事を更新</span></button>
+          <button id="jumpGithubZip" class="quickBtn" type="button">📦<b>GitHub ZIP</b><span>ZIPから直接反映</span></button>
         </div>
+      </div>
+    </section>
+
+
+    <section id="githubZipSection" class="smartCard">
+      <div class="smartCardHead">
+        <div><div class="eyebrow">GITHUB DEPLOY</div><h2>📦 ZIPからGitHubへ反映</h2></div>
+        <span id="githubStatusBadge" class="statusBadge">確認中</span>
+      </div>
+      <p class="sectionHint">ZIPを選ぶだけで中身を展開し、先頭フォルダを自動で外してGitHubへ反映します。</p>
+      <div class="githubUploadBox">
+        <input id="githubZipInput" type="file" accept=".zip,application/zip" class="input">
+        <div class="githubUploadMeta">
+          <span>対象: <b>yuuji0628/kyushu-family-trip-navi</b></span>
+          <span>ブランチ: <b>main</b></span>
+        </div>
+        <div id="githubZipPreview" class="small">ZIPを選択してください。</div>
+        <div class="miniActions">
+          <button id="githubZipUploadBtn" class="btn" type="button" disabled>GitHubへ反映する</button>
+          <button id="githubCheckBtn" class="btn sub" type="button">接続確認</button>
+        </div>
+        <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
+        <div class="progressTrack"><div id="githubProgressBar" class="progressBar"></div></div>
       </div>
     </section>
 
@@ -1434,6 +1569,7 @@ function adminPage() {
       <div id="articleList">読み込み中...</div>
     </section>
   </main>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
 (function(){
   var password = sessionStorage.getItem("adminPassword") || "";
@@ -1454,6 +1590,130 @@ function adminPage() {
   };
   $("logoutBtn").onclick = function(){ sessionStorage.removeItem("adminPassword"); location.reload(); };
   function csv(v){ return v.split(",").map(function(x){return x.trim();}).filter(Boolean); }
+
+  var githubZipFiles=[];
+
+  async function checkGithubConnection(){
+    $("githubStatusBadge").className="statusBadge";
+    $("githubStatusBadge").textContent="確認中";
+    try{
+      var r=await fetch("/api/github-status",{headers:headers()});
+      var d=await r.json().catch(function(){return {};});
+      if(r.ok && d.ok){
+        $("githubStatusBadge").textContent="接続済み";
+        $("githubUploadStatus").textContent="GitHub接続OK："+(d.repositoryName||d.repository);
+        return true;
+      }
+      $("githubStatusBadge").className="statusBadge error";
+      $("githubStatusBadge").textContent=d.configured===false?"未設定":"接続エラー";
+      $("githubUploadStatus").textContent=d.error||"GitHub接続に失敗しました。";
+      return false;
+    }catch(e){
+      $("githubStatusBadge").className="statusBadge error";
+      $("githubStatusBadge").textContent="接続エラー";
+      $("githubUploadStatus").textContent="GitHub接続確認に失敗しました。";
+      return false;
+    }
+  }
+
+  function commonTopFolder(paths){
+    var clean=paths.filter(Boolean).map(function(p){return p.replace(/^\/+/,"");});
+    if(!clean.length) return "";
+    var first=clean[0].split("/")[0];
+    if(!first) return "";
+    return clean.every(function(p){return p===first || p.startsWith(first+"/");}) ? first+"/" : "";
+  }
+
+  function u8ToBase64(bytes){
+    var binary="";
+    var chunk=0x8000;
+    for(var i=0;i<bytes.length;i+=chunk){
+      binary+=String.fromCharCode.apply(null, bytes.subarray(i,Math.min(i+chunk,bytes.length)));
+    }
+    return btoa(binary);
+  }
+
+  $("githubZipInput").onchange=async function(){
+    githubZipFiles=[];
+    $("githubZipUploadBtn").disabled=true;
+    $("githubProgressBar").style.width="0%";
+    var file=this.files&&this.files[0];
+    if(!file){$("githubZipPreview").textContent="ZIPを選択してください。";return;}
+    if(typeof JSZip==="undefined"){
+      $("githubZipPreview").textContent="ZIP機能を読み込めませんでした。";
+      return;
+    }
+    $("githubZipPreview").textContent="ZIPを解析中...";
+    try{
+      var zip=await JSZip.loadAsync(file);
+      var paths=Object.keys(zip.files).filter(function(k){
+        return !zip.files[k].dir && !k.includes("__MACOSX/") && !k.endsWith(".DS_Store");
+      });
+      var root=commonTopFolder(paths);
+      githubZipFiles=paths.map(function(original){
+        return {
+          original:original,
+          path:root && original.startsWith(root)?original.slice(root.length):original,
+          entry:zip.files[original]
+        };
+      }).filter(function(x){return x.path && !x.path.startsWith(".git/");});
+
+      $("githubZipPreview").innerHTML="<b>"+escapeHtmlClient(file.name)+"</b> / "+githubZipFiles.length+"ファイル"+
+        (root?" / 先頭フォルダ「"+escapeHtmlClient(root.slice(0,-1))+"」は自動で外します。":"");
+      $("githubZipUploadBtn").disabled=githubZipFiles.length===0;
+    }catch(e){
+      $("githubZipPreview").textContent="ZIPの読み込みに失敗しました："+e.message;
+    }
+  };
+
+  $("githubZipUploadBtn").onclick=async function(){
+    if(!githubZipFiles.length) return;
+    if(!confirm("ZIP内の"+githubZipFiles.length+"ファイルをGitHubへ反映します。よろしいですか？")) return;
+
+    var connected=await checkGithubConnection();
+    if(!connected) return;
+
+    $("githubZipUploadBtn").disabled=true;
+    var ok=0, failed=0, failures=[];
+
+    for(var i=0;i<githubZipFiles.length;i++){
+      var f=githubZipFiles[i];
+      $("githubUploadStatus").textContent="反映中 "+(i+1)+"/"+githubZipFiles.length+"："+f.path;
+      $("githubProgressBar").style.width=Math.round((i/githubZipFiles.length)*100)+"%";
+      try{
+        var bytes=await f.entry.async("uint8array");
+        var r=await fetch("/api/github-file",{
+          method:"POST",
+          headers:headers(),
+          body:JSON.stringify({
+            path:f.path,
+            contentBase64:u8ToBase64(bytes),
+            branch:"main",
+            message:"Admin ZIP deploy: "+f.path
+          })
+        });
+        var d=await r.json().catch(function(){return {};});
+        if(!r.ok){
+          failed++;
+          failures.push(f.path+" ("+(d.details||d.error||("HTTP "+r.status))+")");
+        }else ok++;
+      }catch(e){
+        failed++;
+        failures.push(f.path+" ("+e.message+")");
+      }
+    }
+
+    $("githubProgressBar").style.width="100%";
+    if(failed===0){
+      $("githubUploadStatus").innerHTML="<b>GitHub反映完了 ✅</b><br>"+ok+"ファイルを更新しました。Cloudflareの自動デプロイ開始を確認してください。";
+    }else{
+      $("githubUploadStatus").innerHTML="<b>一部失敗</b><br>成功 "+ok+" / 失敗 "+failed+"<br>"+escapeHtmlClient(failures.slice(0,5).join(" / "));
+    }
+    $("githubZipUploadBtn").disabled=false;
+  };
+
+  $("githubCheckBtn").onclick=checkGithubConnection;
+
   function fmtDateTime(v){
     if(!v) return "未実行";
     try{
@@ -1557,6 +1817,7 @@ function adminPage() {
     setTimeout(function(){ $("articleEditorSection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
   };
   $("jumpArticleList").onclick=function(){ $("articleListSection").scrollIntoView({behavior:"smooth",block:"start"}); };
+  $("jumpGithubZip").onclick=function(){ $("githubZipSection").scrollIntoView({behavior:"smooth",block:"start"}); };
   $("jumpQuality").onclick=function(){
     $("qualitySection").open=true;
     setTimeout(function(){ $("qualitySection").scrollIntoView({behavior:"smooth",block:"start"}); },50);
@@ -1707,6 +1968,7 @@ function adminPage() {
   };
 
   refreshAutoHotelStatus();
+  checkGithubConnection();
 
   $("hotelArticleBtn").onclick=async function(){
     var h=window.__selectedRakutenHotel||{};
@@ -1795,6 +2057,8 @@ export default {
       if (url.pathname === "/api/hotel-article") return await createGenericHotelArticle(request, env);
       if (url.pathname === "/api/auto-hotel") return await handleAutoHotelApi(request, env);
       if (url.pathname === "/api/admin-dashboard") return await handleAdminDashboard(request, env);
+      if (url.pathname === "/api/github-status") return await handleGithubStatus(request, env);
+      if (url.pathname === "/api/github-file") return await handleGithubFileUpload(request, env);
       if (url.pathname === "/api/premium-articles") return await upgradePremiumArticles(request, env);
       if (url.pathname === "/__diag") {
         if (!env.DB) return json({ ok: false, error: "D1 binding DB is not configured" }, { status: 500 });
