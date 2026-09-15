@@ -1672,8 +1672,124 @@ function editorialPolicyPage(url) {
   return html(layout("編集方針｜九州ファミリー旅ナビ", body, `<meta name="description" content="九州ファミリー旅ナビの編集方針、情報源、自動作成、広告について。"><link rel="canonical" href="${esc(canonical)}">`));
 }
 
-function adminPage(request, env) {
+
+async function loadAdminSnapshot(env) {
+  const snapshot = {
+    published:0, affiliateCount:0, successRuns:0,
+    recentRuns:[], articles:[], lastRun:null, warning:""
+  };
+  if (!env.DB) {
+    snapshot.warning = "D1 binding DB が見つかりません。";
+    return snapshot;
+  }
+
+  const warnings = [];
+
+  try {
+    const row = await env.DB.prepare(`
+      SELECT
+        SUM(CASE WHEN published = 1 THEN 1 ELSE 0 END) AS published,
+        SUM(CASE WHEN affiliateRakuten IS NOT NULL AND affiliateRakuten <> '' THEN 1 ELSE 0 END) AS affiliateCount
+      FROM articles
+    `).first();
+    snapshot.published = Number(row?.published || 0);
+    snapshot.affiliateCount = Number(row?.affiliateCount || 0);
+  } catch (e) {
+    warnings.push("記事統計: " + String(e?.message || e));
+  }
+
+  try {
+    const rr = await env.DB.prepare(`
+      SELECT *
+      FROM articles
+      ORDER BY
+        CASE WHEN updatedAt IS NULL OR updatedAt = '' THEN 1 ELSE 0 END,
+        updatedAt DESC,
+        date DESC
+      LIMIT 100
+    `).all();
+    snapshot.articles = rr?.results || [];
+  } catch (e) {
+    warnings.push("記事一覧: " + String(e?.message || e));
+  }
+
+  try {
+    await ensureAutoHotelLogTable(env.DB);
+    const row = await env.DB.prepare(`
+      SELECT SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successRuns
+      FROM auto_hotel_runs
+    `).first();
+    snapshot.successRuns = Number(row?.successRuns || 0);
+
+    const rr = await env.DB.prepare(`
+      SELECT id, runAt, status, prefecture, keyword, hotelNo, hotelName, articleId, message
+      FROM auto_hotel_runs
+      ORDER BY id DESC
+      LIMIT 8
+    `).all();
+    snapshot.recentRuns = rr?.results || [];
+    snapshot.lastRun = snapshot.recentRuns[0] || null;
+  } catch (e) {
+    warnings.push("自動作成履歴: " + String(e?.message || e));
+  }
+
+  snapshot.warning = warnings.join(" / ");
+  return snapshot;
+}
+
+async function adminPage(request, env) {
   const serverAuthed = requireAuth(request, env);
+  const adminSnapshot = serverAuthed ? await loadAdminSnapshot(env) : {
+    published:0, affiliateCount:0, successRuns:0, recentRuns:[], articles:[], lastRun:null, warning:""
+  };
+
+  const adminArticlesHtml = adminSnapshot.articles.length
+    ? adminSnapshot.articles.map(a => {
+        const published = Number(a.published || 0) === 1;
+        const affiliate = !!a.affiliateRakuten;
+        const date = a.updatedAt || a.date || "";
+        return `<div class="contentRow">
+          <div class="contentMain">
+            <div class="contentTitle">${esc(a.title || "無題")}</div>
+            <div class="contentMeta">
+              <span class="miniBadge ${published ? "ok" : ""}">${published ? "公開" : "下書き"}</span>
+              ${affiliate ? `<span class="miniBadge affiliate">楽天リンクあり</span>` : ""}
+              ${date ? `<span>${esc(date)}</span>` : ""}
+            </div>
+          </div>
+          <div class="contentActions">
+            <a class="btn sub" target="_blank" href="/article.html?id=${encodeURIComponent(a.id || "")}">表示</a>
+            <button class="btn sub" type="button" onclick='articleEditDirect(${JSON.stringify(String(a.id || ""))})'>編集</button>
+            <button class="btn dangerBtn" type="button" onclick='articleDeleteDirect(${JSON.stringify(String(a.id || ""))},${JSON.stringify(String(a.title || ""))})'>削除</button>
+          </div>
+        </div>`;
+      }).join("")
+    : `<div class="smartNotice">記事はまだありません。</div>`;
+
+  const recentRunsHtml = adminSnapshot.recentRuns.length
+    ? adminSnapshot.recentRuns.map(x => {
+        const cls = x.status === "error" ? " error" : x.status === "skip" ? " skip" : "";
+        return `<div class="activityItem">
+          <span class="activityDot${cls}"></span>
+          <div>
+            <div class="activityTitle">${esc(x.hotelName || x.message || "自動処理")}</div>
+            <div class="activityMeta">${esc(x.runAt || "")}${x.prefecture ? ` ・ ${esc(x.prefecture)}` : ""}</div>
+          </div>
+          <div class="activityState">${esc(x.status || "")}</div>
+        </div>`;
+      }).join("")
+    : `<div class="smartNotice">まだ自動作成履歴はありません。</div>`;
+
+  const lastRun = adminSnapshot.lastRun;
+  const initialStatusBadge = lastRun
+    ? (lastRun.status === "success" ? "成功" : lastRun.status === "error" ? "エラー" : lastRun.status === "skip" ? "スキップ" : esc(lastRun.status || "完了"))
+    : (adminSnapshot.warning ? "一部取得" : "正常");
+  const initialStatusClass = lastRun?.status === "error" ? "statusBadge error" : lastRun?.status === "skip" ? "statusBadge skip" : "statusBadge";
+  const initialStatusHtml = adminSnapshot.warning
+    ? `一部データのみ取得しました：${esc(adminSnapshot.warning)}`
+    : lastRun
+      ? `<b>${esc(lastRun.hotelName || "自動処理")}</b><br>最終実行：${esc(lastRun.runAt || "")}${lastRun.prefecture ? ` / ${esc(lastRun.prefecture)}` : ""}${lastRun.message ? `<br>${esc(lastRun.message)}` : ""}<br>次回予定：毎朝6:10 JST`
+      : `<b>自動実行の準備は完了しています。</b><br>次回予定：毎朝6:10 JST`;
   const loginError = new URL(request.url).searchParams.get("login") === "error";
   const body = `<div id="loginBox" class="login" style="${serverAuthed ? "display:none" : ""}">
     <h2>管理画面ログイン</h2>
@@ -1683,26 +1799,26 @@ function adminPage(request, env) {
       <button id="loginBtn" class="btn" type="submit">ログイン</button>
     </form>
     <div id="loginStatus" class="small">${loginError ? "パスワードが違います。" : ""}</div>
-    <div class="small" style="margin-top:10px;opacity:.65">admin v7.5.1 / NATIVE LOGIN</div>
+    <div class="small" style="margin-top:10px;opacity:.65">admin v7.6.0 / SERVER RENDER</div>
   </div>
   <main id="adminApp" class="admin" style="${serverAuthed ? "" : "display:none"}">
     <section class="adminHero">
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.5.1 / NATIVE LOGIN / <span id="directDashVersion">direct loader</span></div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.0 / SERVER RENDER</div>
       </div>
       <div class="heroActions">
         <button id="dashAutoRunBtn" class="btn" type="button" onclick="autoHotelCreateDirect('dashAutoRunBtn')">今すぐ1記事作成</button>
-        <button id="dashRefreshBtn" class="btn sub" type="button" onclick="dashboardLoadDirect();articleListLoadDirect()">↻ 更新</button>
+        <button id="dashRefreshBtn" class="btn sub" type="button" onclick="location.reload()">↻ 更新</button>
         <a id="logoutBtn" class="btn sub" href="/admin-logout">ログアウト</a>
       </div>
     </section>
 
     <section class="statGrid">
-      <div class="statCard"><span>公開記事</span><strong id="statArticles">--</strong><small>件</small></div>
-      <div class="statCard"><span>楽天リンク付き</span><strong id="statAffiliate">--</strong><small>件</small></div>
-      <div class="statCard"><span>自動作成成功</span><strong id="statAutoSuccess">--</strong><small>件</small></div>
+      <div class="statCard"><span>公開記事</span><strong id="statArticles">${adminSnapshot.published}</strong><small>件</small></div>
+      <div class="statCard"><span>楽天リンク付き</span><strong id="statAffiliate">${adminSnapshot.affiliateCount}</strong><small>件</small></div>
+      <div class="statCard"><span>自動作成成功</span><strong id="statAutoSuccess">${adminSnapshot.successRuns}</strong><small>件</small></div>
       <div class="statCard"><span>次回自動実行</span><strong style="font-size:22px">6:10</strong><small>毎朝 JST</small></div>
     </section>
 
@@ -1710,9 +1826,9 @@ function adminPage(request, env) {
       <div class="smartCard">
         <div class="smartCardHead">
           <div><div class="eyebrow">AUTOMATION</div><h2>自動作成ステータス</h2></div>
-          <span id="autoStatusBadge" class="statusBadge">確認中</span>
+          <span id="autoStatusBadge" class="${initialStatusClass}">${initialStatusBadge}</span>
         </div>
-        <div id="dashAutoStatus" class="timelineBox">状態を取得しています...</div>
+        <div id="dashAutoStatus" class="timelineBox">${initialStatusHtml}</div>
         <div class="miniActions">
           <a class="btn sub" href="/" target="_blank">公開サイト</a>
           <a class="btn sub" href="/articles.html" target="_blank">記事一覧</a>
@@ -1756,7 +1872,7 @@ function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.5.1</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.0</div>
       </form>
     </section>
 
@@ -1765,7 +1881,7 @@ function adminPage(request, env) {
         <div><div class="eyebrow">RECENT ACTIVITY</div><h2>最近の自動作成</h2></div>
         <span class="sectionHint">直近8件</span>
       </div>
-      <div id="recentAutoRuns" class="activityList">読み込み中...</div>
+      <div id="recentAutoRuns" class="activityList">${recentRunsHtml}</div>
     </section>
 
     
@@ -1833,10 +1949,10 @@ function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.5.1</div></div>
-        <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="articleListLoadDirect()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.0 / SERVER RENDER</div></div>
+        <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
-      <div id="articleList">読み込み中...</div>
+      <div id="articleList">${adminArticlesHtml}</div>
     </section>
   </main>
 <script>
@@ -2155,12 +2271,7 @@ async function adminLoginDirect(){
   }
 }
 document.addEventListener("DOMContentLoaded",function(){
-  setTimeout(function(){
-    if((window.__SERVER_AUTHED__ || sessionStorage.getItem("adminPassword")) && document.getElementById("adminApp") && document.getElementById("adminApp").style.display!=="none"){
-      dashboardLoadDirect();
-      articleListLoadDirect();
-    }
-  },800);
+  // v7.6.0: 初期表示はサーバー描画。自動fetchで上書きしない。
   var input=document.getElementById("pw");
   if(input){
     input.addEventListener("keydown",function(e){
@@ -2794,7 +2905,7 @@ export default {
       if (url.pathname === "/editorial-policy.html") return editorialPolicyPage(url);
       if (url.pathname === "/admin-login") return await handleAdminLogin(request, env);
       if (url.pathname === "/admin-logout") return handleAdminLogout();
-      if (url.pathname === "/admin.html") return adminPage(request, env);
+      if (url.pathname === "/admin.html") return await adminPage(request, env);
       return html(layout("ページが見つかりません", '<main class="article"><h1>404</h1><p>ページが見つかりません。</p></main>'), { status:404 });
     } catch (e) {
       return json({ error: String(e && e.message ? e.message : e) }, { status:500 });
