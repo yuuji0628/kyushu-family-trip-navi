@@ -1,22 +1,20 @@
-v7.6.4｜削除ボタンをJavaScript非依存に変更
+v7.7.0｜記事ページをファミリー向けデザインへ刷新
 
-原因:
-Native Login後は認証がHttpOnly Cookie中心になっていますが、
-削除ボタンはまだJavaScriptの articleDeleteDirect() に依存していました。
-そのためiPhoneでボタン操作が安定しない/認証情報を取得できないケースが残っていました。
+変更内容:
+- 記事上部を大きな写真＋家族向けヒーローカードに変更
+- カテゴリ・日付・タグを見やすく整理
+- 子連れ・温泉・プール・食事・駐車場・ベビー対応を記事内容から自動判定してアイコン表示
+- 楽天トラベルCTAを家族向けカードデザインへ変更
+- 記事本文のH2から目次を自動生成
+- 各H2を番号付きのやわらかいカード見出しへ変更
+- 編集部ポイント/予約前チェック/メモをファミリー向けカードへ変更
+- 写真を大きな角丸カードとして表示
+- 編集部・関連記事も同じトーンに統一
+- iPhone向けレスポンシブ調整
 
-修正:
-- 削除ボタンを通常のHTMLフォームに変更
-- POST /admin-delete-article をWorker側で直接処理
-- Cookie認証でD1から記事を削除
-- 削除後は管理画面へ戻り、削除結果を表示
-- 削除ボタン自体はonclickを使用しない
+既存機能は維持:
+Native Login / Native記事作成 / Native削除 / Server Render /
+楽天API / GitHub ZIP / D1 / Cron / 写真品質改善
 
-維持:
-Native Login / Native記事作成 / Server Render / 写真品質改善 /
-GitHub ZIP / 楽天API / D1 / Cron
-
-反映後:
-dashboard v7.6.4 / NATIVE DELETE
-article list v7.6.4 / NATIVE DELETE
-と表示されます。
+GitHubでは worker.js だけ置き換えてください。
+反映後の管理画面表示: dashboard v7.7.0 / FAMILY ARTICLE
