@@ -1,15 +1,16 @@
 事前検証済み
 - Worker syntax: OK
-- roomImageUrl normalization: OK
-- roomThumbnailUrl normalization: OK
-- HotelDetailSearch helper: OK
-- HotelDetailSearch 20260731: OK
-- manual create detail fetch: OK
-- auto create detail fetch: OK
-- variation engine: OK
-- four editorial modes: OK
-- detailed rating fields: OK
-- family article design retained: OK
+- recursive image collection: OK
+- gallery normalized: OK
+- room gallery: OK
+- meal gallery: OK
+- pool gallery: OK
+- bath gallery: OK
+- facility gallery: OK
+- no wrong room fallback: OK
+- high-res sizing: OK
+- variation retained: OK
+- family design retained: OK
 - native hotel search retained: OK
 - native login retained: OK
 - native create retained: OK
@@ -17,7 +18,6 @@
 - GitHub retained: OK
 - D1 retained: OK
 - Cron retained: OK
-- Room image used by article builder: OK
 - node --check: OK
 
-※本番楽天APIの返却画像そのものはCloudflareのSecretsを使うためローカルではライブ取得していません。
+※ 本番楽天APIの画像返却内容はCloudflareのSecretsが必要なため、ローカルではライブ取得していません。
