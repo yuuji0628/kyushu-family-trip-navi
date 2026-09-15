@@ -338,6 +338,45 @@ function markdownLite(src = "") {
     .replace(/\n/g, "<br>");
 }
 
+
+function cleanReaderFacingArticle(content = "") {
+  let text = String(content || "");
+
+  text = text.replace(/---\s*\n+\*\*編集方針と情報源\*\*[\s\S]*?(?=\n+\*\*広告について\*\*|$)/g, "");
+  text = text.replace(/\*\*広告について\*\*[\s\S]*$/g, "");
+
+  const lines = text.split("\n");
+  const cleaned = [];
+
+  for (let line of lines) {
+    const raw = line.trim();
+
+    if (
+      /楽天トラベル(?:施設情報)?API/.test(raw) ||
+      /画像種別/.test(raw) ||
+      /高解像度写真を取得できなかった/.test(raw) ||
+      /別カテゴリの画像で代用/.test(raw) ||
+      /外観写真を客室写真として代用/.test(raw) ||
+      /取得できた画像種別/.test(raw) ||
+      /誤解を避けて画像は掲載していません/.test(raw)
+    ) {
+      continue;
+    }
+
+    line = line
+      .replace(/楽天トラベルから取得した/g, "")
+      .replace(/楽天掲載写真/g, "ホテル写真")
+      .replace(/ホテル選びの参考になる写真です。/g, "")
+      .replace(/写真カテゴリを安全に判別できないため、誤った説明を付けず/g, "")
+      .replace(/この記事の編集角度は「[^」]+」。/g, "")
+      .replace(/^> POINT:\s*この記事の編集角度は「[^」]+」。/g, "> POINT: ");
+
+    cleaned.push(line);
+  }
+
+  return cleaned.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function articleToc(content = "") {
   const rows = String(content || "").split("\n");
   const items = [];
@@ -554,7 +593,8 @@ async function articlePage(env, url) {
   const area = AREA_LABELS[a.area] || a.area;
   const cat = CATEGORY_LABELS[a.category] || a.category;
   const isHotel = a.category === "hotel" || /ホテル|宿|旅館/.test(a.title || "");
-  const contentText = [a.title, a.excerpt, a.content, ...(a.tags || [])].join(" ");
+  const readerContent = cleanReaderFacingArticle(a.content);
+  const contentText = [a.title, a.excerpt, readerContent, ...(a.tags || [])].join(" ");
   const visual = a.coverImage
     ? `<img src="${esc(a.coverImage)}" alt="${esc(a.coverAlt || a.title)}" loading="eager">`
     : `<div class="familyHeroEmoji">${esc(a.icon || "🏨")}</div>`;
@@ -571,7 +611,7 @@ async function articlePage(env, url) {
   if (!features.length) features.push([/.*/, "👨‍👩‍👧‍👦", "家族旅行", "mint"]);
   const featureHtml = features.map(x => `<div class="familyFeature ${x[3]}"><span>${x[1]}</span><b>${x[2]}</b></div>`).join("");
 
-  const toc = articleToc(a.content);
+  const toc = articleToc(readerContent);
   const tocHtml = toc.length ? `<section class="familyToc"><div class="familyTocHead"><div><span>📖</span><b>この記事の目次</b></div><small>気になるところから読めます</small></div><div class="familyTocGrid">${toc.map((t,i)=>`<a href="#section-${i+1}"><span>${i+1}</span>${esc(t)}</a>`).join("")}</div></section>` : "";
   const summaryItems = toc.slice(0,3);
   const summaryHtml = summaryItems.length ? `<section class="familyQuickSummary"><div class="quickSummaryHead"><span>👨‍👩‍👧‍👦</span><div><small>FAMILY TRIP GUIDE</small><b>この記事でわかること</b></div></div><div class="quickSummaryGrid">${summaryItems.map((t,i)=>`<div class="quickSummaryItem"><span>${["🛏️","🍽️","✨"][i] || "✓"}</span><b>${esc(t)}</b></div>`).join("")}</div></section>` : "";
@@ -611,7 +651,7 @@ async function articlePage(env, url) {
     ${tocHtml}
 
     <div class="familyReadingLabel"><span>✦</span><b>家族目線で詳しくチェック</b><span>✦</span></div>
-    <article class="articleBody familyArticleBody"><p>${markdownLite(a.content)}</p></article>
+    <article class="articleBody familyArticleBody"><p>${markdownLite(readerContent)}</p></article>
 
     ${affiliateLinks ? `<section class="affiliate familyAffiliate"><div class="familySectionTitle"><span>🧳</span><h2>旅行予約をチェック</h2></div><div class="familyAffiliateButtons">${affiliateLinks}</div><div class="small">PR｜アフィリエイトリンクを含みます。料金・空室・条件はリンク先でご確認ください。</div></section>` : ""}
     ${authorBox}
@@ -799,12 +839,12 @@ function varyHotelArticleContent(markdown, seed, hotel) {
   };
 
   const detailNote = hotel.roomImageUrl
-    ? `> POINT: 今回は楽天トラベル施設情報APIの客室画像も取得できています。外観写真を客室写真として代用せず、取得できた画像種別を分けて掲載しています。`
-    : `> MEMO: 客室画像は楽天側の返却状況によって空になる場合があります。その場合は誤った外観写真で代用せず、予約ページの客室一覧へ案内します。`;
+    ? `> POINT: 客室・館内施設・食事など、写真で確認しやすいポイントもあわせて紹介します。`
+    : `> MEMO: 客室タイプによって広さや設備が異なるため、予約前に部屋タイプごとの写真と定員を確認しておくと安心です。`;
 
   return [
     first ? first.text : "",
-    `> POINT: この記事の編集角度は「${modeData.label}」。${modeData.intro}`,
+    `> POINT: ${modeData.intro}`,
     detailNote,
     ...ordered.map(renameSection),
     last ? last.text : ""
@@ -949,7 +989,7 @@ ${opening}
 
 ${verdict}
 
-${photoGalleryBlock(heroImages, "外観・施設", "楽天トラベルから取得した施設写真です。")}> POINT: このホテルを見るときの軸は「${localHint}」こと。料金だけではなく、移動とホテル滞在をセットで考えると選びやすくなります。
+${photoGalleryBlock(heroImages, "外観・施設", "ホテルの外観・施設写真です。")}> POINT: このホテルを見るときの軸は「${localHint}」こと。料金だけではなく、移動とホテル滞在をセットで考えると選びやすくなります。
 
 ### 今わかっている基本情報
 
@@ -967,23 +1007,23 @@ ${special ? `楽天トラベルの施設紹介には「${special}」とありま
 
 ## 客室・内装を写真でチェック
 
-${articleRoomImages.length ? photoGalleryBlock(articleRoomImages, "客室・内装", "楽天トラベルから取得した客室写真です。部屋タイプによって広さや設備は異なります。") : `*客室と安全に判別できる高解像度写真を取得できなかったため、食事・プール・外観などの写真を客室写真として代用していません。取得できた写真自体は後半の「楽天掲載写真」に掲載します。*\n\n`}
+${articleRoomImages.length ? photoGalleryBlock(articleRoomImages, "客室・内装", "客室・内装の写真です。部屋タイプによって広さや設備は異なります。") : `*客室タイプによって内装や広さが異なるため、予約ページでも部屋ごとの写真をご確認ください。*\n\n`}
 子連れでは、客室の豪華さよりも「荷物を広げても動きやすいか」「寝かしつけしやすいか」「誰がどこで寝るか」を想像して選ぶのが大切です。
 
 > CHECK: 客室写真だけで決めず、定員・寝具・禁煙喫煙・バス・トイレ・添い寝条件まで確認してください。
 
 ## 館内施設・温泉・プールを確認
 
-${photoGalleryBlock(articlePoolImages, "プール・水遊び施設", "楽天トラベルから取得したプール・水遊び施設の写真です。")}
-${photoGalleryBlock(articleBathImages, "温泉・お風呂", "楽天トラベルから取得した温泉・浴場の写真です。")}
-${photoGalleryBlock(articleFacilityImages, "館内・施設", "楽天トラベルから取得した館内・施設写真です。")}
-${hasPool ? `施設紹介からプール・水遊び系の設備が確認できるホテルです。子どもが楽しみにしやすいポイントなので、営業期間・対象年齢・水遊び用パンツ・浮き輪などの条件を予約前に確認しておくと安心です。なお、楽天APIからプール専用写真を判別できない場合は、誤った写真を載せないため施設写真のみ掲載します。` : ""}
+${photoGalleryBlock(articlePoolImages, "プール・水遊び施設", "プール・水遊び施設の写真です。")}
+${photoGalleryBlock(articleBathImages, "温泉・お風呂", "温泉・浴場の写真です。")}
+${photoGalleryBlock(articleFacilityImages, "館内・施設", "館内・施設の写真です。")}
+${hasPool ? `施設紹介からプール・水遊び系の設備が確認できるホテルです。子どもが楽しみにしやすいポイントなので、営業期間・対象年齢・水遊び用パンツ・浮き輪などの条件を予約前に確認しておくと安心です。なお、プール専用写真を判別できない場合は、誤った写真を載せないため施設写真のみ掲載します。` : ""}
 ${hasOnsen ? `温泉・大浴場系の設備があるホテルなら、観光を詰め込みすぎず「ホテルでゆっくりする時間」を旅程に入れると満足度が上がりやすいです。` : ""}
 ${hasKids ? `キッズ・ファミリー向け設備が案内されている場合は、対象年齢と利用時間を確認しておくと、子どもの昼寝や夕食時間と合わせやすくなります。` : ""}
 
-${photoGalleryBlock(articlePlanImages, "宿泊プラン・施設", "楽天トラベルから取得した宿泊プラン関連の写真です。")}
-${photoGalleryBlock(articleOtherImages, "楽天掲載写真", "写真カテゴリを安全に判別できないため、誤った説明を付けず楽天掲載写真として表示しています。")}
-${photoGalleryBlock(articleAllRemainingImages, "その他の楽天掲載写真", "取得できた写真を重複なく掲載しています。")}
+${photoGalleryBlock(articlePlanImages, "宿泊プラン・施設", "宿泊プラン・施設の写真です。")}
+${photoGalleryBlock(articleOtherImages, "楽天掲載写真", "ホテルの雰囲気がわかる写真です。")}
+${photoGalleryBlock(articleAllRemainingImages, "その他の楽天掲載写真", "ホテル選びの参考になる写真です。")}
 
 ## 編集部ならここから見る
 
@@ -1031,7 +1071,7 @@ ${pricePerspective(priceNum)}という価格感なので、条件が合えば候
 
 ## 食事・朝食・レストランを写真で確認
 
-${articleMealImages.length ? photoGalleryBlock(articleMealImages, "食事・朝食・レストラン", "楽天トラベルから取得した食事・レストラン関連の写真です。") : `*食事専用の高解像度写真を取得できなかった場合は、別カテゴリの画像で代用しません。*\n\n`}
+${articleMealImages.length ? photoGalleryBlock(articleMealImages, "食事・朝食・レストラン", "食事・レストランの写真です。") : `*食事内容は宿泊プランや時期によって変わるため、予約ページで最新のメニュー・提供形式をご確認ください。*\n\n`}
 
 朝食・夕食は、子どもの年齢や食べられるものによってホテル選びの満足度が大きく変わります。バイキング形式か、会場までの移動、子ども用メニューや椅子の有無なども確認したいポイントです。
 
@@ -2428,7 +2468,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.0.0 / FAMILY MAGAZINE</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.0.1 / READER CLEAN</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2502,7 +2542,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.0.0</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.0.1</div>
       </form>
     </section>
 
@@ -2590,7 +2630,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.0.0</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.0.1</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
