@@ -1,17 +1,18 @@
 事前検証済み
 - Worker syntax: OK
-- No duplicate URL logic: OK
-- Room-specific image only: OK
-- No generic room fallback: OK
-- Facility generic caption: OK
-- Pool caution: OK
+- Inline scripts syntax: OK
+- Native delete route: OK
+- Native delete handler: OK
+- Native delete form: OK
+- Delete D1 SQL: OK
 - Native create retained: OK
 - Native login retained: OK
 - Server render retained: OK
+- Photo quality retained: OK
 - GitHub retained: OK
 - Rakuten retained: OK
 - D1 retained: OK
 - Cron retained: OK
-- Old repeated-image helper removed: OK
+- Delete button no onclick: OK
 
-※ 写真の中身そのものを画像認識して分類しているわけではありません。楽天APIが返す画像種別を基準に、誤表示を避ける設計です。
+本番Cloudflare D1/Secretsでのライブ削除はローカル環境では実行していません。
