@@ -322,6 +322,87 @@ async function listArticles(db, opts = {}) {
   return (r.results || []).map(normalizeRow);
 }
 
+
+function isAllowedArticleImageUrl(value) {
+  try {
+    const u = new URL(String(value || ""));
+    if (!["https:","http:"].includes(u.protocol)) return false;
+    const h = u.hostname.toLowerCase();
+
+    // Only proxy known Rakuten/Rakuten Travel image infrastructure.
+    const allowed = [
+      "rakuten.co.jp",
+      "r10s.jp",
+      "rakuten-static.com",
+      "rakuten.com"
+    ];
+    return allowed.some(domain => h === domain || h.endsWith("." + domain));
+  } catch {
+    return false;
+  }
+}
+
+function imageFallbackSvg() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+    <rect width="1200" height="700" rx="36" fill="#f3f8f6"/>
+    <circle cx="600" cy="310" r="68" fill="#dfece7"/>
+    <path d="M565 330l48-58 65 82H522z" fill="#9bbab0"/>
+    <text x="600" y="440" text-anchor="middle" font-size="34" font-family="sans-serif" fill="#60776f">写真を読み込めませんでした</text>
+  </svg>`;
+  return new Response(svg, {
+    status: 200,
+    headers:{
+      "content-type":"image/svg+xml; charset=utf-8",
+      "cache-control":"public, max-age=300"
+    }
+  });
+}
+
+async function articleImageProxy(request) {
+  const url = new URL(request.url);
+  const src = url.searchParams.get("src") || "";
+  if (!isAllowedArticleImageUrl(src)) return imageFallbackSvg();
+
+  const fetchHeaders = {
+    "user-agent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1",
+    "accept":"image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+    "referer":"https://travel.rakuten.co.jp/"
+  };
+
+  try {
+    let res = await fetch(src, {
+      method:"GET",
+      headers:fetchHeaders,
+      redirect:"follow"
+    });
+
+    // Some image hosts dislike Referer; retry once without it.
+    if (!res.ok) {
+      const retryHeaders = {...fetchHeaders};
+      delete retryHeaders.referer;
+      res = await fetch(src, {
+        method:"GET",
+        headers:retryHeaders,
+        redirect:"follow"
+      });
+    }
+
+    if (!res.ok) return imageFallbackSvg();
+
+    const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.startsWith("image/")) return imageFallbackSvg();
+
+    const headers = new Headers();
+    headers.set("content-type", contentType);
+    headers.set("cache-control", "public, max-age=86400, s-maxage=604800");
+    const len = res.headers.get("content-length");
+    if (len) headers.set("content-length", len);
+    return new Response(res.body, {status:200, headers});
+  } catch {
+    return imageFallbackSvg();
+  }
+}
+
 function markdownLite(src = "") {
   const safe = esc(src);
   let h2Index = 0;
@@ -329,7 +410,11 @@ function markdownLite(src = "") {
     .replace(/^&gt; POINT: (.+)$/gm, '<div class="editorPoint"><div class="familyTipIcon">💡</div><div><b>家族旅行ポイント</b><span>$1</span></div></div>')
     .replace(/^&gt; CHECK: (.+)$/gm, '<div class="checkPoint"><div class="familyTipIcon">✅</div><div><b>予約前チェック</b><span>$1</span></div></div>')
     .replace(/^&gt; MEMO: (.+)$/gm, '<div class="memoPoint"><div class="familyTipIcon">📝</div><div><b>ひとことメモ</b><span>$1</span></div></div>')
-    .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, '<figure class="articlePhoto"><img src="$2" alt="$1" loading="lazy"><figcaption>$1</figcaption></figure>')
+    .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, function(_, alt, rawUrl) {
+      const imageUrl = String(rawUrl || "").replace(/&amp;/g, "&");
+      const proxied = "/media/image?src=" + encodeURIComponent(imageUrl);
+      return '<figure class="articlePhoto"><img src="'+proxied+'" alt="'+alt+'" loading="lazy" decoding="async"><figcaption>'+alt+'</figcaption></figure>';
+    })
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
     .replace(/^## (.+)$/gm, function(_, title){ h2Index += 1; return '<h2 id="section-'+h2Index+'">'+title+'</h2>'; })
     .replace(/^- (.+)$/gm, "<li>$1</li>")
@@ -503,7 +588,7 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .relatedGrid b,.relatedGrid span{display:block}.relatedGrid span{margin-top:6px;color:var(--muted);font-size:12px}
 .articleBody{font-size:17px;line-height:2;color:#21372f}.articleBody h2{margin-top:44px;padding:14px 0 10px;border-bottom:2px solid #dcece5;font-size:26px;line-height:1.4}.articleBody h3{margin-top:30px;font-size:20px;line-height:1.5}.articleBody p{margin:16px 0}.articleBody ul{padding-left:1.3em}.articleBody li{margin:8px 0}.editorPoint,.checkPoint,.memoPoint{display:grid;gap:5px;margin:22px 0;padding:16px 18px;border-radius:16px}.editorPoint{background:#eff9f5;border-left:5px solid #168861}.checkPoint{background:#fff9e9;border-left:5px solid #d8a91f}.memoPoint{background:#f4f7fb;border-left:5px solid #6d7f9e}
 .articlePhoto{margin:22px 0 26px}
-.articlePhoto img{display:block;width:auto;max-width:100%;height:auto;object-fit:contain;margin:0 auto;border-radius:18px;border:1px solid var(--line);background:#f5f7f6}
+.articlePhoto img{display:block;width:auto;max-width:100%;height:auto;object-fit:contain;margin:0 auto;border-radius:18px;border:1px solid var(--line);background:#f5f7f6;min-height:120px}
 .articlePhoto figcaption{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
 .editorPoint b,.checkPoint b,.memoPoint b{font-size:13px}.editorPoint span,.checkPoint span,.memoPoint span{font-size:15px;line-height:1.7}
 
@@ -2179,7 +2264,7 @@ function collectRakutenImages(node, path = "", out = []) {
   if (typeof node === "string") {
     const imageLikePath = /image|photo|picture|thumbnail|img|画像|写真/i.test(path);
     const imageLikeUrl = /\.(?:jpe?g|png|webp|avif)(?:\?|$)/i.test(node) || /image|photo|picture/i.test(node);
-    if (/^https?:\/\//i.test(node) && (imageLikePath || imageLikeUrl)) {
+    if (/^https?:\/\//i.test(node) && isAllowedArticleImageUrl(node) && (imageLikePath || imageLikeUrl)) {
       out.push({ url:node, category:rakutenImageCategory(path, node), path });
     }
     return out;
@@ -2206,7 +2291,7 @@ function normalizeRakutenImageGallery(item, basic = {}) {
     ["plan", basic.planImageUrl],
     ["plan", basic.planThumbnailUrl]
   ].forEach(([category,url]) => {
-    if (!url) return;
+    if (!url || !isAllowedArticleImageUrl(url)) return;
     const detected = category === "roomCandidate"
       ? rakutenImageCategory("basic.roomImageUrl", url)
       : category;
@@ -2703,7 +2788,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.2.0 / SEO MAX</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.2.1 / IMAGE PROXY FIX</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2777,7 +2862,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.2.0</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.2.1</div>
       </form>
     </section>
 
@@ -2865,7 +2950,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.2.0</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.2.1</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
@@ -3710,6 +3795,7 @@ export default {
         return json({ ok: true, storage: "d1", featuredCount: rows.length, ids: rows.map(x => x.id) });
       }
       if (url.pathname === "/" || url.pathname === "/index.html") return await homePage(env, url);
+      if (url.pathname === "/media/image") return await articleImageProxy(request);
       if (url.pathname === "/articles.html") return await articlesPage(env, url);
       if (url.pathname.startsWith("/guide/")) return await seoGuidePage(env, url);
       if (url.pathname === "/sitemap.xml") return await sitemapPage(env, url);
