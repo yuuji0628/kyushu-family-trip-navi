@@ -1436,11 +1436,11 @@ function adminPage() {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.2.4</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.2.5 / <span id="directDashVersion">direct loader</span></div>
       </div>
       <div class="heroActions">
         <button id="dashAutoRunBtn" class="btn" type="button">今すぐ1記事作成</button>
-        <button id="dashRefreshBtn" class="btn sub" type="button">↻ 更新</button>
+        <button id="dashRefreshBtn" class="btn sub" type="button" onclick="dashboardLoadDirect()">↻ 更新</button>
         <button id="logoutBtn" class="btn sub" type="button">ログアウト</button>
       </div>
     </section>
@@ -1593,6 +1593,99 @@ function adminPage() {
     </section>
   </main>
 <script>
+
+function dashEsc(v){
+  return String(v==null?"":v).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+function dashFmtDate(v){
+  if(!v) return "未実行";
+  try{
+    return new Intl.DateTimeFormat("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(v));
+  }catch(e){return String(v);}
+}
+async function dashboardLoadDirect(){
+  var pw=sessionStorage.getItem("adminPassword")||"";
+  var articleEl=document.getElementById("statArticles");
+  var affEl=document.getElementById("statAffiliate");
+  var successEl=document.getElementById("statAutoSuccess");
+  var badge=document.getElementById("autoStatusBadge");
+  var status=document.getElementById("dashAutoStatus");
+  var recent=document.getElementById("recentAutoRuns");
+  if(!articleEl||!affEl||!successEl||!badge||!status||!recent) return;
+
+  articleEl.textContent="…";
+  affEl.textContent="…";
+  successEl.textContent="…";
+  badge.className="statusBadge";
+  badge.textContent="読込中";
+  status.textContent="ダッシュボード情報を取得中...";
+
+  var controller=new AbortController();
+  var timer=setTimeout(function(){controller.abort();},10000);
+  try{
+    var r=await fetch("/api/admin-dashboard",{
+      cache:"no-store",
+      signal:controller.signal,
+      headers:{"x-admin-password":pw}
+    });
+    var text=await r.text();
+    var d={};
+    try{d=text?JSON.parse(text):{};}catch(e){d={raw:text};}
+
+    if(!r.ok){
+      throw new Error("HTTP "+r.status+" / "+(d.error||d.raw||"取得失敗"));
+    }
+
+    articleEl.textContent=Number(d.articles&&d.articles.published||0);
+    affEl.textContent=Number(d.articles&&d.articles.affiliateCount||0);
+    successEl.textContent=Number(d.automation&&d.automation.successRuns||0);
+
+    var last=d.automation&&d.automation.last;
+    if(last){
+      var cls=last.status==="error"?" error":last.status==="skip"?" skip":"";
+      badge.className="statusBadge"+cls;
+      badge.textContent=last.status==="success"?"成功":last.status==="error"?"エラー":last.status==="skip"?"スキップ":String(last.status||"完了");
+      status.innerHTML="<b>"+dashEsc(last.hotelName||"自動処理")+"</b><br>"+
+        "最終実行："+dashEsc(dashFmtDate(last.runAt))+
+        (last.prefecture?" / "+dashEsc(last.prefecture):"")+
+        (last.message?"<br>"+dashEsc(last.message):"")+
+        "<br>次回予定：毎朝6:10 JST";
+    }else{
+      badge.className="statusBadge";
+      badge.textContent=d.partial?"一部取得":"正常";
+      status.innerHTML=d.partial&&d.warnings&&d.warnings.length
+        ? "一部データのみ取得："+dashEsc(d.warnings.join(" / "))
+        : "<b>自動実行の準備は完了しています。</b><br>次回予定：毎朝6:10 JST";
+    }
+
+    var rows=d.automation&&d.automation.recent||[];
+    recent.innerHTML=rows.length?rows.map(function(x){
+      var cls=x.status==="error"?" error":x.status==="skip"?" skip":"";
+      return '<div class="activityItem">'+
+        '<span class="activityDot'+cls+'"></span>'+
+        '<div><div class="activityTitle">'+dashEsc(x.hotelName||x.message||"自動処理")+'</div>'+
+        '<div class="activityMeta">'+dashEsc(dashFmtDate(x.runAt))+
+        (x.prefecture?' ・ '+dashEsc(x.prefecture):'')+'</div></div>'+
+        '<div class="activityState">'+dashEsc(x.status||"")+'</div></div>';
+    }).join(""):'<div class="smartNotice">まだ自動作成履歴はありません。</div>';
+
+    var directMark=document.getElementById("directDashVersion");
+    if(directMark) directMark.textContent="データ取得OK";
+  }catch(e){
+    articleEl.textContent="!";
+    affEl.textContent="!";
+    successEl.textContent="!";
+    badge.className="statusBadge error";
+    badge.textContent="取得エラー";
+    status.textContent="ダッシュボード取得エラー："+(e&&e.name==="AbortError"?"10秒でタイムアウト":(e&&e.message?e.message:"不明なエラー"));
+    recent.innerHTML='<div class="smartNotice">ダッシュボード取得に失敗しました。</div>';
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 async function adminLoginDirect(){
   var btn=document.getElementById("loginBtn");
   var status=document.getElementById("loginStatus");
@@ -1610,6 +1703,7 @@ async function adminLoginDirect(){
       loginBox.style.display="none";
       adminApp.style.display="block";
       status.textContent="ログイン成功";
+      dashboardLoadDirect();
       window.dispatchEvent(new CustomEvent("admin-direct-login",{detail:{password:pw}}));
     }else{
       status.textContent="パスワードが違います。（HTTP "+r.status+"）";
@@ -1621,6 +1715,11 @@ async function adminLoginDirect(){
   }
 }
 document.addEventListener("DOMContentLoaded",function(){
+  setTimeout(function(){
+    if(sessionStorage.getItem("adminPassword") && document.getElementById("adminApp") && document.getElementById("adminApp").style.display!=="none"){
+      dashboardLoadDirect();
+    }
+  },800);
   var input=document.getElementById("pw");
   if(input){
     input.addEventListener("keydown",function(e){
