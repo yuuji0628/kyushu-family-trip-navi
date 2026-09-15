@@ -64,7 +64,63 @@ function normalizeRow(row) {
 
 function requireAuth(request, env) {
   const password = request.headers.get("x-admin-password") || "";
-  return !!env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD;
+  if (!!env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) return true;
+
+  const cookie = request.headers.get("cookie") || "";
+  const match = cookie.match(/(?:^|;\s*)admin_session=([^;]+)/);
+  if (!match || !env.ADMIN_PASSWORD) return false;
+
+  try {
+    return decodeURIComponent(match[1]) === env.ADMIN_PASSWORD;
+  } catch {
+    return false;
+  }
+}
+
+
+async function handleAdminLogin(request, env) {
+  if (request.method !== "POST") {
+    return new Response(null, { status:302, headers:{ location:"/admin.html" } });
+  }
+
+  const form = await request.formData().catch(() => new FormData());
+  const password = String(form.get("password") || "");
+
+  if (!env.ADMIN_PASSWORD || password !== env.ADMIN_PASSWORD) {
+    return new Response(null, {
+      status:303,
+      headers:{ location:"/admin.html?login=error" }
+    });
+  }
+
+  const cookie = [
+    "admin_session=" + encodeURIComponent(password),
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Strict",
+    "Max-Age=43200"
+  ].join("; ");
+
+  return new Response(null, {
+    status:303,
+    headers:{
+      location:"/admin.html",
+      "set-cookie":cookie,
+      "cache-control":"no-store"
+    }
+  });
+}
+
+function handleAdminLogout() {
+  return new Response(null, {
+    status:303,
+    headers:{
+      location:"/admin.html",
+      "set-cookie":"admin_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0",
+      "cache-control":"no-store"
+    }
+  });
 }
 
 function payloadToParams(payload) {
@@ -1616,26 +1672,30 @@ function editorialPolicyPage(url) {
   return html(layout("編集方針｜九州ファミリー旅ナビ", body, `<meta name="description" content="九州ファミリー旅ナビの編集方針、情報源、自動作成、広告について。"><link rel="canonical" href="${esc(canonical)}">`));
 }
 
-function adminPage() {
-  const body = `<div id="loginBox" class="login">
+function adminPage(request, env) {
+  const serverAuthed = requireAuth(request, env);
+  const loginError = new URL(request.url).searchParams.get("login") === "error";
+  const body = `<div id="loginBox" class="login" style="${serverAuthed ? "display:none" : ""}">
     <h2>管理画面ログイン</h2>
     <p>Cloudflare Workers の ADMIN_PASSWORD を入力してください。</p>
-    <div class="field"><input id="pw" class="input" type="password" placeholder="管理パスワード"></div>
-    <button id="loginBtn" class="btn" type="button" onclick="adminLoginDirect()">ログイン</button>
-    <div id="loginStatus" class="small"></div>
-    <div class="small" style="margin-top:10px;opacity:.65">admin v7.2.2</div>
+    <form method="post" action="/admin-login" autocomplete="off">
+      <div class="field"><input id="pw" name="password" class="input" type="password" placeholder="管理パスワード" required></div>
+      <button id="loginBtn" class="btn" type="submit">ログイン</button>
+    </form>
+    <div id="loginStatus" class="small">${loginError ? "パスワードが違います。" : ""}</div>
+    <div class="small" style="margin-top:10px;opacity:.65">admin v7.5.1 / NATIVE LOGIN</div>
   </div>
-  <main id="adminApp" class="admin" style="display:none">
+  <main id="adminApp" class="admin" style="${serverAuthed ? "" : "display:none"}">
     <section class="adminHero">
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.5.0 / UI AUDIT OK / <span id="directDashVersion">direct loader</span></div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.5.1 / NATIVE LOGIN / <span id="directDashVersion">direct loader</span></div>
       </div>
       <div class="heroActions">
         <button id="dashAutoRunBtn" class="btn" type="button" onclick="autoHotelCreateDirect('dashAutoRunBtn')">今すぐ1記事作成</button>
         <button id="dashRefreshBtn" class="btn sub" type="button" onclick="dashboardLoadDirect();articleListLoadDirect()">↻ 更新</button>
-        <button id="logoutBtn" class="btn sub" type="button" onclick="sessionStorage.removeItem('adminPassword');location.reload()">ログアウト</button>
+        <a id="logoutBtn" class="btn sub" href="/admin-logout">ログアウト</a>
       </div>
     </section>
 
@@ -1696,7 +1756,7 @@ function adminPage() {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.5.0</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.5.1</div>
       </form>
     </section>
 
@@ -1773,13 +1833,14 @@ function adminPage() {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.5.0</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.5.1</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="articleListLoadDirect()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       <div id="articleList">読み込み中...</div>
     </section>
   </main>
 <script>
+window.__SERVER_AUTHED__ = ${serverAuthed ? "true" : "false"};
 
 function dashEsc(v){
   return String(v==null?"":v).replace(/[&<>"']/g,function(c){
@@ -2095,7 +2156,7 @@ async function adminLoginDirect(){
 }
 document.addEventListener("DOMContentLoaded",function(){
   setTimeout(function(){
-    if(sessionStorage.getItem("adminPassword") && document.getElementById("adminApp") && document.getElementById("adminApp").style.display!=="none"){
+    if((window.__SERVER_AUTHED__ || sessionStorage.getItem("adminPassword")) && document.getElementById("adminApp") && document.getElementById("adminApp").style.display!=="none"){
       dashboardLoadDirect();
       articleListLoadDirect();
     }
@@ -2731,7 +2792,9 @@ export default {
       if (url.pathname === "/robots.txt") return robotsPage(url);
       if (url.pathname === "/article.html") return await articlePage(env, url);
       if (url.pathname === "/editorial-policy.html") return editorialPolicyPage(url);
-      if (url.pathname === "/admin.html") return adminPage();
+      if (url.pathname === "/admin-login") return await handleAdminLogin(request, env);
+      if (url.pathname === "/admin-logout") return handleAdminLogout();
+      if (url.pathname === "/admin.html") return adminPage(request, env);
       return html(layout("ページが見つかりません", '<main class="article"><h1>404</h1><p>ページが見つかりません。</p></main>'), { status:404 });
     } catch (e) {
       return json({ error: String(e && e.message ? e.message : e) }, { status:500 });
