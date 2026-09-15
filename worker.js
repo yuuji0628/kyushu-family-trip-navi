@@ -1486,18 +1486,18 @@ function adminPage() {
       </div>
       <p class="sectionHint">ZIPを選ぶだけで中身を展開し、先頭フォルダを自動で外してGitHubへ反映します。</p>
       <div class="githubUploadBox">
-        <input id="githubZipInput" type="file" accept=".zip,application/zip" class="input">
+        <input id="githubZipInput" type="file" accept=".zip,application/zip" class="input" onchange="githubZipSelectDirect(this)">
         <div class="githubUploadMeta">
           <span>対象: <b>yuuji0628/kyushu-family-trip-navi</b></span>
           <span>ブランチ: <b>main</b></span>
         </div>
         <div id="githubZipPreview" class="small">ZIPを選択してください。</div>
         <div class="miniActions">
-          <button id="githubZipUploadBtn" class="btn" type="button" disabled>GitHubへ反映する</button>
+          <button id="githubZipUploadBtn" class="btn" type="button" onclick="githubZipUploadDirect()" disabled>GitHubへ反映する</button>
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.2.3</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.2.6 / direct ZIP</div>
         <div class="progressTrack"><div id="githubProgressBar" class="progressBar"></div></div>
       </div>
     </section>
@@ -1777,6 +1777,176 @@ async function githubCheckDirect(){
 }
 </script>
 <script>
+var directGithubZipFiles=[];
+
+function githubCommonTopFolder(paths){
+  var clean=paths.filter(Boolean).map(function(p){return p.replace(/^\/+/,"");});
+  if(!clean.length) return "";
+  var first=clean[0].split("/")[0];
+  if(!first) return "";
+  return clean.every(function(p){return p===first || p.startsWith(first+"/");}) ? first+"/" : "";
+}
+
+function githubBytesToBase64(bytes){
+  var binary="", chunk=0x8000;
+  for(var i=0;i<bytes.length;i+=chunk){
+    binary+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+chunk,bytes.length)));
+  }
+  return btoa(binary);
+}
+
+async function githubInflateRaw(bytes){
+  if(typeof DecompressionStream==="undefined"){
+    throw new Error("このSafariではZIP展開機能が使えません。iOSを最新版にしてください。");
+  }
+  var ds=new DecompressionStream("deflate-raw");
+  var stream=new Blob([bytes]).stream().pipeThrough(ds);
+  var buf=await new Response(stream).arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+async function githubParseZip(file){
+  var buf=await file.arrayBuffer();
+  var view=new DataView(buf);
+  var bytes=new Uint8Array(buf);
+  var decoder=new TextDecoder("utf-8");
+  var pos=0, entries=[];
+
+  while(pos+30<=view.byteLength){
+    var sig=view.getUint32(pos,true);
+    if(sig===0x04034b50){
+      var flags=view.getUint16(pos+6,true);
+      var method=view.getUint16(pos+8,true);
+      var compSize=view.getUint32(pos+18,true);
+      var uncompSize=view.getUint32(pos+22,true);
+      var nameLen=view.getUint16(pos+26,true);
+      var extraLen=view.getUint16(pos+28,true);
+
+      if(flags & 0x08) throw new Error("このZIP形式は未対応です。ChatGPTから受け取ったZIPをそのまま選択してください。");
+
+      var nameStart=pos+30;
+      var dataStart=nameStart+nameLen+extraLen;
+      if(dataStart+compSize>view.byteLength) throw new Error("ZIPデータが壊れています。");
+
+      var name=decoder.decode(bytes.slice(nameStart,nameStart+nameLen));
+      var compressed=bytes.slice(dataStart,dataStart+compSize);
+      var output;
+      if(method===0) output=compressed;
+      else if(method===8) output=await githubInflateRaw(compressed);
+      else throw new Error("未対応の圧縮方式です: "+method);
+
+      if(uncompSize && output.length!==uncompSize) throw new Error("ZIP展開サイズ不一致: "+name);
+      if(!name.endsWith("/")) entries.push({name:name,bytes:output});
+      pos=dataStart+compSize;
+      continue;
+    }
+    if(sig===0x02014b50 || sig===0x06054b50) break;
+    pos++;
+  }
+  if(!entries.length) throw new Error("ZIP内にファイルが見つかりません。");
+  return entries;
+}
+
+async function githubZipSelectDirect(input){
+  var preview=document.getElementById("githubZipPreview");
+  var btn=document.getElementById("githubZipUploadBtn");
+  var bar=document.getElementById("githubProgressBar");
+  directGithubZipFiles=[];
+  if(btn) btn.disabled=true;
+  if(bar) bar.style.width="0%";
+
+  var file=input && input.files && input.files[0];
+  if(!file){
+    if(preview) preview.textContent="ZIPを選択してください。";
+    return;
+  }
+  if(preview) preview.textContent="ZIPを解析中...";
+
+  try{
+    var entries=await githubParseZip(file);
+    var paths=entries.map(function(e){return e.name;}).filter(function(k){
+      return !k.includes("__MACOSX/") && !k.endsWith(".DS_Store");
+    });
+    var root=githubCommonTopFolder(paths);
+
+    directGithubZipFiles=entries.map(function(entry){
+      var path=(root && entry.name.startsWith(root)) ? entry.name.slice(root.length) : entry.name;
+      return {path:path,bytes:entry.bytes};
+    }).filter(function(x){
+      return x.path && !x.path.startsWith(".git/") && !x.path.includes("__MACOSX/") && !x.path.endsWith(".DS_Store");
+    });
+
+    if(preview){
+      preview.innerHTML="<b>"+dashEsc(file.name)+"</b> / "+directGithubZipFiles.length+"ファイル"+
+        (root?" / 先頭フォルダ「"+dashEsc(root.slice(0,-1))+"」を自動で外します。":"");
+    }
+    if(btn) btn.disabled=directGithubZipFiles.length===0;
+  }catch(e){
+    if(preview) preview.textContent="ZIP解析エラー: "+(e&&e.message?e.message:"不明なエラー");
+    if(btn) btn.disabled=true;
+  }
+}
+
+async function githubZipUploadDirect(){
+  var btn=document.getElementById("githubZipUploadBtn");
+  var status=document.getElementById("githubUploadStatus");
+  var bar=document.getElementById("githubProgressBar");
+  if(!directGithubZipFiles.length){
+    if(status) status.textContent="先にZIPを選択してください。";
+    return;
+  }
+  if(!confirm("ZIP内の"+directGithubZipFiles.length+"ファイルをGitHubへ反映します。よろしいですか？")) return;
+
+  if(btn) btn.disabled=true;
+  var pw=sessionStorage.getItem("adminPassword")||"";
+  var ok=0, failed=0, failures=[];
+
+  for(var i=0;i<directGithubZipFiles.length;i++){
+    var f=directGithubZipFiles[i];
+    if(status) status.textContent="反映中 "+(i+1)+"/"+directGithubZipFiles.length+"："+f.path;
+    if(bar) bar.style.width=Math.round((i/directGithubZipFiles.length)*100)+"%";
+    try{
+      var r=await fetch("/api/github-file",{
+        method:"POST",
+        cache:"no-store",
+        headers:{
+          "content-type":"application/json",
+          "x-admin-password":pw
+        },
+        body:JSON.stringify({
+          path:f.path,
+          contentBase64:githubBytesToBase64(f.bytes),
+          branch:"main",
+          message:"Admin ZIP deploy: "+f.path
+        })
+      });
+      var text=await r.text();
+      var d={};
+      try{d=text?JSON.parse(text):{};}catch(e){d={raw:text};}
+      if(!r.ok){
+        failed++;
+        failures.push(f.path+" ("+(d.details||d.error||d.raw||("HTTP "+r.status))+")");
+      }else{
+        ok++;
+      }
+    }catch(e){
+      failed++;
+      failures.push(f.path+" ("+(e&&e.message?e.message:"通信エラー")+")");
+    }
+  }
+
+  if(bar) bar.style.width="100%";
+  if(status){
+    if(failed===0){
+      status.innerHTML="<b>GitHub反映完了 ✅</b><br>"+ok+"ファイルを更新しました。Cloudflareの自動デプロイを確認してください。";
+    }else{
+      status.innerHTML="<b>一部失敗</b><br>成功 "+ok+" / 失敗 "+failed+"<br>"+dashEsc(failures.slice(0,5).join(" / "));
+    }
+  }
+  if(btn) btn.disabled=false;
+}
+</script>
+<script>
 (function(){
   var password = sessionStorage.getItem("adminPassword") || "";
   var $ = function(id){ return document.getElementById(id); };
@@ -1918,95 +2088,9 @@ async function githubCheckDirect(){
     return entries;
   }
 
-  $("githubZipInput").onchange=async function(){
-    githubZipFiles=[];
-    $("githubZipUploadBtn").disabled=true;
-    $("githubProgressBar").style.width="0%";
-    var file=this.files&&this.files[0];
-    if(!file){$("githubZipPreview").textContent="ZIPを選択してください。";return;}
+  // ZIP input handled by independent direct uploader.
 
-    $("githubZipPreview").textContent="ZIPを解析中...";
-    try{
-      var entries=await parseZipFile(file);
-      var paths=entries.map(function(e){return e.name;}).filter(function(k){
-        return !k.includes("__MACOSX/") && !k.endsWith(".DS_Store");
-      });
-      var root=commonTopFolder(paths);
-
-      githubZipFiles=entries.map(function(entry){
-        var path=root && entry.name.startsWith(root)?entry.name.slice(root.length):entry.name;
-        return {original:entry.name,path:path,bytes:entry.bytes};
-      }).filter(function(x){
-        return x.path && !x.path.startsWith(".git/") && !x.path.includes("__MACOSX/") && !x.path.endsWith(".DS_Store");
-      });
-
-      $("githubZipPreview").innerHTML="<b>"+escapeHtmlClient(file.name)+"</b> / "+githubZipFiles.length+"ファイル"+
-        (root?" / 先頭フォルダ「"+escapeHtmlClient(root.slice(0,-1))+"」は自動で外します。":"");
-      $("githubZipUploadBtn").disabled=githubZipFiles.length===0;
-    }catch(e){
-      $("githubZipPreview").textContent="ZIPの読み込みに失敗しました："+e.message;
-    }
-  };
-
-  $("githubZipUploadBtn").onclick=async function(){
-    if(!githubZipFiles.length) return;
-    if(!confirm("ZIP内の"+githubZipFiles.length+"ファイルをGitHubへ反映します。よろしいですか？")) return;
-
-    var connected=await checkGithubConnection();
-    if(!connected) return;
-
-    $("githubZipUploadBtn").disabled=true;
-    var ok=0, failed=0, failures=[];
-
-    for(var i=0;i<githubZipFiles.length;i++){
-      var f=githubZipFiles[i];
-      $("githubUploadStatus").textContent="反映中 "+(i+1)+"/"+githubZipFiles.length+"："+f.path;
-      $("githubProgressBar").style.width=Math.round((i/githubZipFiles.length)*100)+"%";
-      try{
-        var bytes=f.bytes;
-        var r=await fetch("/api/github-file",{
-          method:"POST",
-          headers:headers(),
-          body:JSON.stringify({
-            path:f.path,
-            contentBase64:u8ToBase64(bytes),
-            branch:"main",
-            message:"Admin ZIP deploy: "+f.path
-          })
-        });
-        var d=await r.json().catch(function(){return {};});
-        if(!r.ok){
-          failed++;
-          failures.push(f.path+" ("+(d.details||d.error||("HTTP "+r.status))+")");
-        }else ok++;
-      }catch(e){
-        failed++;
-        failures.push(f.path+" ("+e.message+")");
-      }
-    }
-
-    $("githubProgressBar").style.width="100%";
-    if(failed===0){
-      $("githubUploadStatus").innerHTML="<b>GitHub反映完了 ✅</b><br>"+ok+"ファイルを更新しました。Cloudflareの自動デプロイ開始を確認してください。";
-    }else{
-      $("githubUploadStatus").innerHTML="<b>一部失敗</b><br>成功 "+ok+" / 失敗 "+failed+"<br>"+escapeHtmlClient(failures.slice(0,5).join(" / "));
-    }
-    $("githubZipUploadBtn").disabled=false;
-  };
-
-
-
-  async function fetchWithTimeout(url, options, timeoutMs){
-    var controller=new AbortController();
-    var timer=setTimeout(function(){controller.abort();}, timeoutMs||10000);
-    try{
-      var opts=Object.assign({},options||{});
-      opts.signal=controller.signal;
-      return await fetch(url,opts);
-    }finally{
-      clearTimeout(timer);
-    }
-  }
+  // ZIP upload handled by independent direct uploader.
 
   function fmtDateTime(v){
     if(!v) return "未実行";
