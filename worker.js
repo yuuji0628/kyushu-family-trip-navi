@@ -437,6 +437,8 @@ a{color:inherit}.wrap{max-width:1080px;margin:auto;padding:0 20px}.header{positi
 .editorPoint,.checkPoint,.memoPoint{box-shadow:0 9px 22px rgba(36,68,59,.05);border-left:0!important}.editorPoint{border:1px solid #cfe9de!important}.checkPoint{border:1px solid #f2df9c!important}.memoPoint{border:1px solid #dbe7f0!important}.familyTipIcon{box-shadow:0 6px 14px rgba(0,0,0,.06)}
 .familyAffiliate{border:0!important;box-shadow:0 14px 34px rgba(56,75,64,.07)}.familyAuthor{background:linear-gradient(135deg,#f1faf6,#fff);box-shadow:0 10px 28px rgba(25,69,56,.05);border:1px solid #dfece7}.familyRelated .relatedGrid a{border-radius:20px!important;box-shadow:0 10px 24px rgba(20,67,53,.05);border:1px solid #e1ebe6!important}
 .familyStickyBooking{display:none}
+.familyFaq,.seoPurposeLinks{margin:34px 0}.familyFaqList{display:grid;gap:10px;margin-top:14px}.familyFaq details{border:1px solid #dfeae5;border-radius:18px;background:#fbfefd;overflow:hidden}.familyFaq summary{cursor:pointer;font-weight:850;padding:15px 18px;list-style:none}.familyFaq summary::-webkit-details-marker{display:none}.familyFaq summary:after{content:"＋";float:right;color:#0b9168;font-size:20px}.familyFaq details[open] summary:after{content:"−"}.familyFaq details p{margin:0;padding:0 18px 17px;color:#526b63;line-height:1.8}.seoPurposePills{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}.seoPurposePills a{background:#eef8f4;border:1px solid #d8ebe3;border-radius:999px;padding:9px 13px;text-decoration:none;font-weight:800;font-size:13px}.seoHubHero{background:linear-gradient(135deg,#e7f8f1,#fff8dc);border-radius:30px;padding:32px;margin:10px 0 28px;box-shadow:0 14px 36px rgba(20,67,53,.07)}.seoHubHero h1{font-size:clamp(32px,6vw,52px);line-height:1.2;margin:8px 0 12px}.seoHubHero p{max-width:760px;color:#526b63}.seoHubLinks{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.seoHubLinks a{background:#fff;border:1px solid #dce8e3;border-radius:999px;padding:8px 12px;text-decoration:none;font-weight:800;font-size:12px}.seoHubIntro{max-width:820px;margin:0 0 28px}.seoHubIntro h2{font-size:24px}.seoHubIntro p{color:#526b63}
+
 
 
 .footer{background:#16352c;color:#fff;padding:44px 0;margin-top:60px}.footer a{color:#fff}
@@ -564,6 +566,149 @@ async function homePage(env, url) {
   return html(layout("九州ファミリー旅ナビ", body, head));
 }
 
+
+const SEO_THEME_CONFIG = {
+  family:{label:"子連れホテル",short:"子連れ",re:/子連れ|家族旅行|ファミリー|家族目線/,description:"子ども連れの九州旅行で選びやすいホテル記事をまとめています。"},
+  baby:{label:"赤ちゃん連れホテル",short:"赤ちゃん",re:/赤ちゃん|ベビー|添い寝|離乳食|ベビーカー|0〜2歳|0-2歳/,description:"赤ちゃん連れで確認したい客室・お風呂・食事・添い寝条件を意識したホテル記事です。"},
+  pool:{label:"プール付き・水遊びホテル",short:"プール",re:/プール|アクア|水遊び|ウォーター|スライダー/,description:"子どもとプールや水遊びを楽しみたい家族向けのホテル記事をまとめています。"},
+  onsen:{label:"温泉・大浴場のあるホテル",short:"温泉",re:/温泉|大浴場|露天|お風呂|浴場|スパ/,description:"家族旅行で温泉・大浴場も楽しみたい人向けのホテル記事をまとめています。"},
+  breakfast:{label:"朝食・食事を楽しめるホテル",short:"朝食・食事",re:/朝食|夕食|食事|ビュッフェ|バイキング|レストラン/,description:"子どもと食事を楽しみやすいホテル選びに役立つ記事をまとめています。"}
+};
+
+function extractHotelNameFromArticle(a) {
+  const tag0 = Array.isArray(a?.tags) ? String(a.tags[0] || "").trim() : "";
+  if (tag0 && !/子連れ|家族旅行|九州旅行/.test(tag0)) return tag0;
+  const title = String(a?.title || "");
+  const separators = ["を子連れ","は家族旅行","は子連れ","の子連れ","を選ぶ前に","｜","？","?"];
+  let best = title;
+  for (const sep of separators) {
+    const i = title.indexOf(sep);
+    if (i > 0 && i < best.length) best = title.slice(0,i);
+  }
+  return best.trim() || title;
+}
+
+function extractMarkdownValue(content, label) {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const m = String(content || "").match(new RegExp("^[-・]?\\s*"+escaped+"[：:]\\s*(.+)$","m"));
+  return m ? m[1].trim() : "";
+}
+
+function extractArticleImages(a, content) {
+  const urls = [];
+  if (a?.coverImage) urls.push(a.coverImage);
+  for (const m of String(content || "").matchAll(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g)) urls.push(m[1]);
+  return [...new Set(urls)].slice(0,30);
+}
+
+function seoThemesForText(text) {
+  const s = String(text || "");
+  return Object.entries(SEO_THEME_CONFIG).filter(([,cfg]) => cfg.re.test(s)).map(([slug]) => slug);
+}
+
+function buildArticleSeoTitle(a, area, contentText) {
+  const name = extractHotelNameFromArticle(a);
+  const themes = seoThemesForText(contentText);
+  const priority = ["baby","pool","onsen","breakfast","family"];
+  const labels = priority.filter(x => themes.includes(x)).map(x => SEO_THEME_CONFIG[x].short);
+  const intent = labels.slice(0,2).join("・") || "子連れ";
+  let title = `${name}は子連れにおすすめ？${intent}を家族目線で解説`;
+  if (title.length > 58) title = `${name}の子連れ宿泊ガイド｜${intent}`;
+  return title + "｜九州ファミリー旅ナビ";
+}
+
+function buildArticleSeoDescription(a, area, contentText) {
+  const name = extractHotelNameFromArticle(a);
+  const labels = seoThemesForText(contentText).slice(0,4).map(x => SEO_THEME_CONFIG[x].short);
+  const featureText = labels.length ? labels.join("・") : "客室・料金・口コミ・アクセス";
+  return `${name}を子連れ・家族旅行目線でチェック。${featureText}、写真、料金、口コミ、アクセスなど予約前に確認したいポイントをわかりやすく紹介します。`;
+}
+
+function buildArticleFaq(a, area, contentText) {
+  const name = extractHotelNameFromArticle(a);
+  const text = String(contentText || "");
+  const faq = [
+    {q:`${name}は子連れ旅行で選びやすい？`,a:`${name}を家族旅行で選ぶときは、客室の寝具、食事条件、館内移動、料金総額をセットで確認するのがおすすめです。この記事では子どもの年齢を意識して判断材料を整理しています。`},
+    {q:`${name}の客室は子ども連れで何を確認すればいい？`,a:`定員・ベッドや布団の数・添い寝条件・禁煙喫煙・バスとトイレの仕様を確認すると安心です。赤ちゃん連れなら寝かしつけや荷物を広げるスペースもチェックしたいポイントです。`},
+    {q:`${name}を予約するとき料金は何を比べればいい？`,a:`大人だけの表示額ではなく、子ども料金、食事、寝具、利用したい施設を含めた家族全員の総額で比較するのがおすすめです。料金・空室・プラン条件は予約ページの最新情報を確認してください。`}
+  ];
+  if (/プール|アクア|水遊び|ウォーター/.test(text)) {
+    faq.push({q:`${name}でプールや水遊びを楽しむときの注意点は？`,a:`営業期間、利用時間、年齢制限、水遊び用パンツ、浮き輪などのルールを事前に確認してください。子どもの昼寝や食事時間も含めてホテルで遊ぶ時間を確保すると動きやすくなります。`});
+  } else if (/温泉|大浴場|露天|浴場/.test(text)) {
+    faq.push({q:`${name}の温泉・大浴場を子どもと利用するときは？`,a:`利用時間や年齢条件を確認し、子どもの疲れ具合に応じて客室のお風呂と使い分けると安心です。観光を詰め込みすぎず入浴時間に余裕を持たせるのがおすすめです。`});
+  } else if (/朝食|夕食|食事|ビュッフェ|バイキング/.test(text)) {
+    faq.push({q:`${name}の食事は子ども連れで何を確認すればいい？`,a:`提供形式、食事時間、子ども料金、子どもが食べられそうな料理、会場までの移動を確認すると選びやすくなります。内容はプランや時期によって変わるため予約ページも確認してください。`});
+  }
+  return faq.slice(0,5);
+}
+
+function hotelSchemaFromArticle(a, canonical, area, contentText, images) {
+  const name = extractHotelNameFromArticle(a);
+  const address = extractMarkdownValue(a.content,"所在地");
+  const priceText = extractMarkdownValue(a.content,"最安料金目安");
+  const ratingText = extractMarkdownValue(a.content,"口コミ評価") || extractMarkdownValue(a.content,"評価");
+  const reviewsText = extractMarkdownValue(a.content,"口コミ");
+  const ratingMatch = ratingText.match(/([0-5](?:\.\d+)?)/);
+  const reviewMatch = reviewsText.replace(/,/g,"").match(/(\d+)/);
+  const amenities = [];
+  [[/プール|アクア|水遊び/,"プール"],[/温泉|大浴場|露天|浴場/,"温泉・大浴場"],[/朝食|ビュッフェ|バイキング/,"朝食"],[/駐車場|駐車|パーキング/,"駐車場"],[/ベビー|赤ちゃん|添い寝/,"子連れ・ベビー向け情報"]]
+    .forEach(([re,label]) => { if (re.test(contentText)) amenities.push({"@type":"LocationFeatureSpecification","name":label,"value":true}); });
+  const schema = {
+    "@type":"Hotel","@id":canonical+"#hotel","name":name,"url":canonical,
+    "description":buildArticleSeoDescription(a,area,contentText),
+    "image":images.length ? images : undefined,
+    "address":address ? {"@type":"PostalAddress","streetAddress":address,"addressRegion":area,"addressCountry":"JP"} : undefined,
+    "priceRange":priceText || undefined,
+    "amenityFeature":amenities.length ? amenities : undefined
+  };
+  if (ratingMatch) schema.aggregateRating = {"@type":"AggregateRating","ratingValue":Number(ratingMatch[1]),"bestRating":5,"worstRating":1,"reviewCount":reviewMatch ? Number(reviewMatch[1]) : undefined};
+  return schema;
+}
+
+function seoHubUrl(area, theme) {
+  return `/guide/${encodeURIComponent(area)}/${encodeURIComponent(theme)}`;
+}
+
+function articleMatchesTheme(a, theme) {
+  const cfg = SEO_THEME_CONFIG[theme];
+  if (!cfg) return false;
+  return cfg.re.test([a.title,a.excerpt,a.content,...(a.tags || [])].join(" "));
+}
+
+async function seoGuidePage(env, url) {
+  const m = url.pathname.match(/^\/guide\/([^/]+)\/([^/]+)$/);
+  if (!m) return html("ページが見つかりません",{status:404});
+  const areaKey = decodeURIComponent(m[1]);
+  const theme = decodeURIComponent(m[2]);
+  const cfg = SEO_THEME_CONFIG[theme];
+  const areaLabel = AREA_LABELS[areaKey];
+  if (!cfg || !areaLabel) return html("ページが見つかりません",{status:404});
+
+  const all = await listArticles(env.DB,{area:areaKey,published:true});
+  const rows = all.filter(a => articleMatchesTheme(a,theme));
+  const title = `${areaLabel}の${cfg.label}おすすめ・選び方｜九州ファミリー旅ナビ`;
+  const desc = `${areaLabel}で${cfg.label}を探している家族向けに、客室・食事・写真・料金・口コミなどを確認できる記事をまとめました。${cfg.description}`;
+  const canonical = url.origin + seoHubUrl(areaKey,theme);
+
+  const body = `<main class="section seoHub"><div class="wrap">
+    <nav class="articleBreadcrumb"><a href="/">⌂ ホーム</a><span>›</span><a href="/articles.html?area=${encodeURIComponent(areaKey)}">${esc(areaLabel)}</a><span>›</span><span>${esc(cfg.label)}</span></nav>
+    <section class="seoHubHero"><div class="eyebrow">FAMILY TRAVEL GUIDE</div><h1>${esc(areaLabel)}の${esc(cfg.label)}</h1><p>${esc(desc)}</p>
+      <div class="seoHubLinks">${Object.entries(SEO_THEME_CONFIG).map(([slug,x]) => `<a href="${seoHubUrl(areaKey,slug)}">${esc(x.short)}</a>`).join("")}</div>
+    </section>
+    <section class="seoHubIntro"><h2>家族旅行で失敗しにくい選び方</h2><p>子連れ旅行では、ホテルの豪華さだけでなく、子どもの年齢、寝具、食事時間、館内移動、家族全員の総額まで合わせて考えると選びやすくなります。気になるホテルの記事を開いて、写真と実用ポイントを比較してみてください。</p></section>
+    <div class="grid">${rows.map(articleCard).join("") || "<p>現在、この条件の記事を準備中です。</p>"}</div>
+  </div></main>`;
+
+  const itemList = {"@type":"ItemList","name":`${areaLabel}の${cfg.label}`,"itemListElement":rows.map((a,i)=>({"@type":"ListItem","position":i+1,"name":a.title,"url":url.origin+"/article.html?id="+encodeURIComponent(a.id)}))};
+  const breadcrumb = {"@type":"BreadcrumbList","itemListElement":[
+    {"@type":"ListItem","position":1,"name":"ホーム","item":url.origin+"/"},
+    {"@type":"ListItem","position":2,"name":areaLabel,"item":url.origin+"/articles.html?area="+encodeURIComponent(areaKey)},
+    {"@type":"ListItem","position":3,"name":cfg.label,"item":canonical}
+  ]};
+  const head = `<meta name="description" content="${esc(desc)}"><link rel="canonical" href="${esc(canonical)}"><meta name="robots" content="index,follow"><meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(canonical)}"><script type="application/ld+json">${JSON.stringify({"@context":"https://schema.org","@graph":[itemList,breadcrumb]})}</script>`;
+  return html(layout(title,body,head));
+}
+
 async function articlesPage(env, url) {
   const area = url.searchParams.get("area") || "";
   const category = url.searchParams.get("category") || "";
@@ -595,6 +740,10 @@ async function articlePage(env, url) {
   const isHotel = a.category === "hotel" || /ホテル|宿|旅館/.test(a.title || "");
   const readerContent = cleanReaderFacingArticle(a.content);
   const contentText = [a.title, a.excerpt, readerContent, ...(a.tags || [])].join(" ");
+  const seoTitle = buildArticleSeoTitle(a, area, contentText);
+  const seoDescription = buildArticleSeoDescription(a, area, contentText);
+  const seoThemes = seoThemesForText(contentText);
+  const faqItems = buildArticleFaq(a, area, contentText);
   const visual = a.coverImage
     ? `<img src="${esc(a.coverImage)}" alt="${esc(a.coverAlt || a.title)}" loading="eager">`
     : `<div class="familyHeroEmoji">${esc(a.icon || "🏨")}</div>`;
@@ -626,6 +775,8 @@ async function articlePage(env, url) {
   const relatedAll = await listArticles(env.DB, { area:a.area, published:true });
   const related = relatedAll.filter(x => x.id !== a.id).slice(0,3);
   const relatedHtml = related.length ? `<section class="relatedBox familyRelated"><div class="familySectionTitle"><span>👑</span><h2>${esc(area)}の関連記事</h2></div><div class="relatedGrid">${related.map(x => `<a href="/article.html?id=${encodeURIComponent(x.id)}"><b>${esc(x.title)}</b><span>${esc(x.excerpt || "")}</span></a>`).join("")}</div></section>` : "";
+  const purposeLinksHtml = seoThemes.length ? `<section class="seoPurposeLinks"><div class="familySectionTitle"><span>🔎</span><h2>${esc(area)}を目的別に探す</h2></div><div class="seoPurposePills">${seoThemes.slice(0,5).map(theme => `<a href="${seoHubUrl(a.area,theme)}">${esc(area)}の${esc(SEO_THEME_CONFIG[theme].label)}</a>`).join("")}</div></section>` : "";
+  const faqHtml = faqItems.length ? `<section class="familyFaq"><div class="familySectionTitle"><span>❓</span><h2>${esc(extractHotelNameFromArticle(a))}のよくある質問</h2></div><div class="familyFaqList">${faqItems.map((x,i)=>`<details ${i===0 ? "open" : ""}><summary>${esc(x.q)}</summary><p>${esc(x.a)}</p></details>`).join("")}</div></section>` : "";
 
   const authorBox = `<section class="authorBox familyAuthor"><div class="familyAuthorIcon">👨‍👩‍👧‍👦</div><div><b>九州ファミリー旅ナビ編集部</b><p>子連れ旅行で役立つ情報を、家族目線でわかりやすく整理しています。</p><a href="/editorial-policy.html">編集方針・情報源について</a></div></section>`;
 
@@ -654,42 +805,56 @@ async function articlePage(env, url) {
     <article class="articleBody familyArticleBody"><p>${markdownLite(readerContent)}</p></article>
 
     ${affiliateLinks ? `<section class="affiliate familyAffiliate"><div class="familySectionTitle"><span>🧳</span><h2>旅行予約をチェック</h2></div><div class="familyAffiliateButtons">${affiliateLinks}</div><div class="small">PR｜アフィリエイトリンクを含みます。料金・空室・条件はリンク先でご確認ください。</div></section>` : ""}
+    ${faqHtml}
+    ${purposeLinksHtml}
     ${authorBox}
     ${relatedHtml}
     ${mobileStickyBooking}
   </main>`;
 
-  const desc = a.seo.metaDescription || a.excerpt || a.title;
-  const keywords = a.seo.keywords || (a.tags || []).join(",");
+  const desc = seoDescription;
+  const keywordParts = [
+    extractHotelNameFromArticle(a),
+    `${area} 子連れ ホテル`,
+    `${area} 家族旅行`,
+    ...seoThemes.map(x => `${area} ${SEO_THEME_CONFIG[x].short}`),
+    ...(a.tags || [])
+  ].filter(Boolean);
+  const keywords = [...new Set(keywordParts)].join(",");
   const canonical = url.origin + "/article.html?id=" + encodeURIComponent(a.id);
-  const image = a.coverImage || "";
-  const schema = {
-    "@context":"https://schema.org",
-    "@graph":[
-      {
-        "@type":"Article",
-        "headline":a.title,
-        "description":desc,
-        "datePublished":a.date || undefined,
-        "dateModified":a.updatedAt || a.date || undefined,
-        "mainEntityOfPage":{"@type":"WebPage","@id":canonical},
-        "author":{"@type":"Organization","name":"九州ファミリー旅ナビ編集部","url":url.origin+"/editorial-policy.html"},
-        "publisher":{"@type":"Organization","name":"九州ファミリー旅ナビ","url":url.origin+"/"},
-        "image":image ? [image] : undefined
-      },
-      {
-        "@type":"BreadcrumbList",
-        "itemListElement":[
-          {"@type":"ListItem","position":1,"name":"ホーム","item":url.origin+"/"},
-          {"@type":"ListItem","position":2,"name":"記事一覧","item":url.origin+"/articles.html"},
-          {"@type":"ListItem","position":3,"name":a.title,"item":canonical}
-        ]
-      }
+  const images = extractArticleImages(a, readerContent);
+  const image = images[0] || "";
+
+  const articleSchema = {
+    "@type":"Article","@id":canonical+"#article","headline":a.title,"name":seoTitle,"description":desc,
+    "datePublished":a.date || undefined,"dateModified":a.updatedAt || a.date || undefined,
+    "mainEntityOfPage":{"@type":"WebPage","@id":canonical},
+    "author":{"@type":"Organization","name":"九州ファミリー旅ナビ編集部","url":url.origin+"/editorial-policy.html"},
+    "publisher":{"@type":"Organization","name":"九州ファミリー旅ナビ","url":url.origin+"/"},
+    "image":images.length ? images : undefined,"keywords":keywords
+  };
+  const breadcrumbSchema = {
+    "@type":"BreadcrumbList","@id":canonical+"#breadcrumb","itemListElement":[
+      {"@type":"ListItem","position":1,"name":"ホーム","item":url.origin+"/"},
+      {"@type":"ListItem","position":2,"name":area,"item":url.origin+"/articles.html?area="+encodeURIComponent(a.area)},
+      {"@type":"ListItem","position":3,"name":a.title,"item":canonical}
     ]
   };
+  const graph = [articleSchema,breadcrumbSchema];
+  if (isHotel) graph.push(hotelSchemaFromArticle(a,canonical,area,contentText,images));
+  if (faqItems.length) graph.push({
+    "@type":"FAQPage","@id":canonical+"#faq",
+    "mainEntity":faqItems.map(x=>({"@type":"Question","name":x.q,"acceptedAnswer":{"@type":"Answer","text":x.a}}))
+  });
+  images.slice(0,12).forEach((img,i)=>graph.push({
+    "@type":"ImageObject","@id":canonical+"#image-"+(i+1),"contentUrl":img,"url":img,
+    "caption":extractHotelNameFromArticle(a)+"の写真"
+  }));
+
+  const schema = {"@context":"https://schema.org","@graph":graph};
   const head = `<meta name="description" content="${esc(desc)}"><meta name="keywords" content="${esc(keywords)}">
-<link rel="canonical" href="${esc(canonical)}"><meta property="og:type" content="article"><meta property="og:title" content="${esc(a.title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(canonical)}">${image ? `<meta property="og:image" content="${esc(image)}">` : ""}<meta name="twitter:card" content="summary_large_image"><script type="application/ld+json">${JSON.stringify(schema)}</script>`;
-  return html(layout(a.title, body, head));
+<link rel="canonical" href="${esc(canonical)}"><meta name="robots" content="index,follow,max-image-preview:large"><meta property="og:type" content="article"><meta property="og:title" content="${esc(seoTitle)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(canonical)}">${image ? `<meta property="og:image" content="${esc(image)}">` : ""}<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(seoTitle)}"><meta name="twitter:description" content="${esc(desc)}">${image ? `<meta name="twitter:image" content="${esc(image)}">` : ""}<script type="application/ld+json">${JSON.stringify(schema)}</script>`;
+  return html(layout(seoTitle, body, head));
 }
 async function upgradePremiumArticles(request, env) {
   if (!env.DB) return json({ error: "D1 binding DB is not configured" }, { status: 500 });
@@ -1037,6 +1202,14 @@ function buildFamilyHotelArticle(hotel) {
     photoGalleryBlock
   });
 
+  const seoIntentLabels = [
+    articlePoolImages.length ? "プール" : "",
+    articleBathImages.length ? "温泉" : "",
+    articleMealImages.length ? "朝食・食事" : "",
+    articleRoomImages.length ? "客室" : "",
+    /赤ちゃん|ベビー|添い寝|離乳食/.test(special) ? "赤ちゃん連れ" : ""
+  ].filter(Boolean);
+  const primarySeoIntent = seoIntentLabels.slice(0,2).join("・") || "子連れ";
 const localHints = {
     "福岡県":["市街地観光と組み合わせやすい","食事の選択肢を広げやすい","公共交通中心でも旅程を作りやすい"],
     "佐賀県":["温泉やドライブ旅と相性がいい","移動を詰め込みすぎない旅程が合いやすい","車移動の家族旅行に向きやすい"],
@@ -1054,10 +1227,10 @@ const localHints = {
     `${name}を候補に入れたとき、最初に見たいのは口コミ点数より「自分たちの旅程にハマるか」です。そこを家族目線で整理します。`
   ], seed);
   const title = chooseBySeed([
-    `${name}を子連れで選ぶなら？家族旅行目線で見る料金・口コミ・アクセス`,
-    `${name}は家族旅行向き？子連れで泊まる前に確認したいポイント`,
-    `${name}の子連れ宿泊ガイド｜料金・口コミ・アクセスを家族目線でチェック`,
-    `${pref}で${name}を選ぶ前に｜子ども連れで見るべきポイントまとめ`
+    `${name}は子連れにおすすめ？${primarySeoIntent}・料金・口コミを家族目線で解説`,
+    `${name}の子連れ宿泊ガイド｜${primarySeoIntent}・客室・料金をチェック`,
+    `${name}は家族旅行向き？${primarySeoIntent}と予約前ポイントを写真で確認`,
+    `${pref}で${name}に泊まるなら｜${primarySeoIntent}を子ども連れ目線でチェック`
   ], seed);
   const usablePhotoCount = allImages.filter(x => !x.isThumbnail).length;
   const verdict = ratingNum >= 4.5 && reviewNum >= 100
@@ -1193,11 +1366,11 @@ ${name}は、${pref}の家族旅行で比較候補に入れやすいホテルで
       `${name}を他のホテルと比較しやすいよう、家族全員の総額・口コミ・客室・設備を順番に確認します。`
     ], seed, 2),
     content,
-    tags: [name, pref, "子連れホテル", "家族旅行", "九州旅行"],
+    tags: [name, pref, "子連れホテル", "家族旅行", "九州旅行", ...seoIntentLabels.map(x => `${x}ホテル`)],
     ageGroups: ["0-2歳","3-6歳","7歳以上"],
     practical: ["家族全員の総額を確認","最近の口コミを確認","必須設備を事前確認","移動とホテル時間をセットで考える"],
-    seoMetaDescription: `${name}は子連れにおすすめ？${pref}の家族旅行で気になる料金・口コミ・アクセス・年齢別の確認ポイントを詳しく解説。`,
-    seoKeywords: `${name} 子連れ,${name} 家族旅行,${name} 口コミ,${name} 料金,${pref} 子連れ ホテル`
+    seoMetaDescription: `${name}を子連れ・家族旅行目線で紹介。${primarySeoIntent}、客室、写真、料金、口コミ、アクセスなど予約前に確認したいポイントを詳しく解説します。`,
+    seoKeywords: [name+" 子連れ",name+" 家族旅行",name+" 口コミ",name+" 料金",pref+" 子連れ ホテル",...seoIntentLabels.map(x=>name+" "+x)].join(",")
   };
 }
 
@@ -2530,7 +2703,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.1.0 / PHOTO-DRIVEN FAMILY</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.2.0 / SEO MAX</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2604,7 +2777,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.1.0</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.2.0</div>
       </form>
     </section>
 
@@ -2692,7 +2865,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.1.0</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.2.0</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
@@ -3476,10 +3649,19 @@ var directGithubZipFiles=[];
 async function sitemapPage(env, url) {
   const rows = await listArticles(env.DB, { published: true });
   const urls = [
-    `<url><loc>${esc(url.origin + "/")}</loc></url>`,
-    `<url><loc>${esc(url.origin + "/articles.html")}</loc></url>`,
-    ...rows.map(a => `<url><loc>${esc(url.origin + "/article.html?id=" + encodeURIComponent(a.id))}</loc><lastmod>${esc(a.updatedAt || a.date || todayJst())}</lastmod></url>`)
+    `<url><loc>${esc(url.origin + "/")}</loc><changefreq>daily</changefreq></url>`,
+    `<url><loc>${esc(url.origin + "/articles.html")}</loc><changefreq>daily</changefreq></url>`,
+    `<url><loc>${esc(url.origin + "/editorial-policy.html")}</loc><changefreq>monthly</changefreq></url>`,
+    ...rows.map(a => `<url><loc>${esc(url.origin + "/article.html?id=" + encodeURIComponent(a.id))}</loc><lastmod>${esc(a.updatedAt || a.date || todayJst())}</lastmod><changefreq>weekly</changefreq></url>`)
   ];
+  for (const areaKey of Object.keys(AREA_LABELS)) {
+    const areaRows = rows.filter(a => a.area === areaKey);
+    for (const theme of Object.keys(SEO_THEME_CONFIG)) {
+      if (areaRows.some(a => articleMatchesTheme(a,theme))) {
+        urls.push(`<url><loc>${esc(url.origin + seoHubUrl(areaKey,theme))}</loc><lastmod>${todayJst()}</lastmod><changefreq>weekly</changefreq></url>`);
+      }
+    }
+  }
   return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>`, {
     headers: { "content-type":"application/xml; charset=utf-8" }
   });
@@ -3529,6 +3711,7 @@ export default {
       }
       if (url.pathname === "/" || url.pathname === "/index.html") return await homePage(env, url);
       if (url.pathname === "/articles.html") return await articlesPage(env, url);
+      if (url.pathname.startsWith("/guide/")) return await seoGuidePage(env, url);
       if (url.pathname === "/sitemap.xml") return await sitemapPage(env, url);
       if (url.pathname === "/robots.txt") return robotsPage(url);
       if (url.pathname === "/article.html") return await articlePage(env, url);
