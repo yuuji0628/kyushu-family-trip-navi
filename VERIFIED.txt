@@ -1,6 +1,17 @@
 事前検証済み
-- node --check: OK
-- Cloudflareエラー原因のトップレベルCSS: 0件
-- Native記事作成フォーム: OK
-- admin-auto-create endpoint: OK
-- D1 / Rakuten / GitHub / Cron: OK
+- Worker syntax: OK
+- No duplicate URL logic: OK
+- Room-specific image only: OK
+- No generic room fallback: OK
+- Facility generic caption: OK
+- Pool caution: OK
+- Native create retained: OK
+- Native login retained: OK
+- Server render retained: OK
+- GitHub retained: OK
+- Rakuten retained: OK
+- D1 retained: OK
+- Cron retained: OK
+- Old repeated-image helper removed: OK
+
+※ 写真の中身そのものを画像認識して分類しているわけではありません。楽天APIが返す画像種別を基準に、誤表示を避ける設計です。
