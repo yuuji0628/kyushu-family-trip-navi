@@ -1,32 +1,26 @@
-v8.2.0｜SEO MAX
+v8.2.1｜画像が「？」になる問題を修正
 
-追加したSEO対策:
-- 記事ごとのSEOタイトル自動最適化
-- meta description自動最適化
-- 子連れ / 赤ちゃん / プール / 温泉 / 朝食・食事 の検索意図を自動判定
-- 新規ホテル記事タイトル・description・keywordsにも検索意図を反映
-- 記事内FAQを自動生成
-- FAQPage構造化データ
-- Hotel構造化データ
-- Article / BreadcrumbList構造化データを強化
-- 写真をImageObjectとして構造化
-- max-image-preview:large
-- OGP / Twitter CardをSEOタイトル・画像に合わせて最適化
-- 「宮崎×プール」「大分×赤ちゃん」などの目的別SEOページを自動生成
-- 記事から目的別SEOページへ内部リンク
-- SEO目的別ページをsitemap.xmlへ自動追加
-- sitemapに更新頻度を追加
+原因:
+v8.1.0以降で画像取得対象を広げた結果、
+楽天側の画像URLをブラウザから直接表示した際に
+ホットリンク制限・Referer制限・リダイレクト等で表示できないケースがありました。
 
-維持:
-Family Magazine / PHOTO-DRIVEN FAMILY / Reader Clean /
-写真ギャラリー / 客室誤分類対策 / Nativeホテル検索 /
-Native Login / Native記事作成 / Native削除 / GitHub ZIP / D1 / Cron
+修正:
+- 記事内の楽天画像を /media/image 経由でWorkerが取得
+- 楽天トラベルのRefererを付けてサーバー側から画像取得
+- 失敗時はRefererなしで1回再試行
+- Content-Typeがimage/*か確認
+- 楽天/R10系ドメインのみ許可し、SSRFを防止
+- 既にD1へ保存済みの記事も表示時に自動的に画像プロキシを利用
+- 新規記事の画像URL収集も許可ドメインに限定
+- それでも取得できない画像は壊れた「？」アイコンではなく、
+  「写真を読み込めませんでした」のプレースホルダーを表示
 
-注意:
-FAQPage構造化データは入れていますが、GoogleのFAQリッチリザルトは現在、
-主に権威ある政府・医療サイトに限定されています。
-旅行サイトでFAQ表示が保証されるものではありません。
+既存機能:
+SEO MAX / PHOTO-DRIVEN FAMILY / Family Magazine / Reader Clean /
+写真分類 / Nativeホテル検索 / Native Login / Native記事作成 /
+Native削除 / GitHub ZIP / D1 / Cron
 
 GitHubでは worker.js を置き換えてください。
 反映後:
-dashboard v8.2.0 / SEO MAX
+dashboard v8.2.1 / IMAGE PROXY FIX
