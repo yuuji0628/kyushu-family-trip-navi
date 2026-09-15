@@ -1,17 +1,18 @@
 事前検証済み
 - Worker syntax: OK
-- Family hero design: OK
-- Family feature badges: OK
-- Server-rendered TOC: OK
-- Numbered article sections: OK
-- Family booking CTA: OK
-- Tip callouts: OK
-- Photo card styling: OK
+- Native search form: OK
+- Server Rakuten search: OK
+- Native hotel pick: OK
+- Native article route: OK
+- Article API reuse: OK
+- Old search button removed: OK
+- Old hotel article button removed: OK
+- Family design retained: OK
 - Native login retained: OK
-- Native create retained: OK
+- Native auto-create retained: OK
 - Native delete retained: OK
 - GitHub retained: OK
-- Rakuten retained: OK
 - D1 retained: OK
 - Cron retained: OK
-- node --check: OK
+
+本番楽天API/Cloudflare D1/Secretsを使うライブ検索のみローカルでは未実施です。
