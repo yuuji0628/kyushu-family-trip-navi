@@ -398,12 +398,28 @@ async function handleRakutenHotelSearch(request, env) {
   let lastStatus = 0;
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    r = await fetch(apiUrl, {
-      headers: {
-        "accept": "application/json",
-        "referer": "https://kyushu-family-trip-navi-worker.rrwpvwmz8p.workers.dev/"
-      }
+    const outboundHeaders = new Headers(request.headers);
+    outboundHeaders.set("accept", "application/json");
+    outboundHeaders.delete("x-admin-password");
+    outboundHeaders.delete("authorization");
+    outboundHeaders.delete("cookie");
+    outboundHeaders.delete("host");
+    outboundHeaders.delete("origin");
+    outboundHeaders.delete("content-length");
+
+    // 楽天側のReferrer検証に、管理画面から届いた実際のRefererをそのまま転送する。
+    // Safari等でRefererが欠落した場合のみ登録済みサイトURLを補完する。
+    if (!outboundHeaders.get("referer")) {
+      outboundHeaders.set("referer", "https://kyushu-family-trip-navi-worker.rrwpvwmz8p.workers.dev/admin.html");
+    }
+
+    const outboundRequest = new Request(apiUrl, {
+      method: "GET",
+      headers: outboundHeaders,
+      redirect: "follow"
     });
+
+    r = await fetch(outboundRequest);
     lastStatus = r.status;
     text = await r.text();
 
