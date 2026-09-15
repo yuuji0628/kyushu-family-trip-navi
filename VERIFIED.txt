@@ -1,20 +1,21 @@
 事前検証済み
 - Worker syntax: OK
 - Inline scripts syntax: OK
-- Server snapshot: OK
-- Async adminPage: OK
-- Server stats: OK
-- Server article list: OK
-- Server recent activity: OK
+- Native route: OK
+- Native handler: OK
+- Top submit: OK
+- Lower submit: OK
+- Engine: OK
+- Result message: OK
 - Native login: OK
-- Auto create: OK
-- Article edit: OK
-- Article delete: OK
-- GitHub ZIP: OK
+- Server render: OK
+- Edit: OK
+- Delete: OK
+- GitHub: OK
 - Rakuten: OK
 - D1: OK
 - Cron: OK
-- Photo article: OK
-- No initial loading placeholders: OK
+- Photos: OK
+- Native buttons no onclick: OK
 
-Cloudflare本番D1/Secretsを使ったライブ実行だけは、このローカル環境では実施していません。
+本番CloudflareのD1/Secretsを使ったライブ実行のみ未実施です。
