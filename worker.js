@@ -334,7 +334,8 @@ function isAllowedArticleImageUrl(value) {
       "rakuten.co.jp",
       "r10s.jp",
       "rakuten-static.com",
-      "rakuten.com"
+      "rakuten.com",
+      "rakutentravel.com"
     ];
     return allowed.some(domain => h === domain || h.endsWith("." + domain));
   } catch {
@@ -411,9 +412,10 @@ function markdownLite(src = "") {
     .replace(/^&gt; CHECK: (.+)$/gm, '<div class="checkPoint"><div class="familyTipIcon">✅</div><div><b>予約前チェック</b><span>$1</span></div></div>')
     .replace(/^&gt; MEMO: (.+)$/gm, '<div class="memoPoint"><div class="familyTipIcon">📝</div><div><b>ひとことメモ</b><span>$1</span></div></div>')
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, function(_, alt, rawUrl) {
-      const imageUrl = String(rawUrl || "").replace(/&amp;/g, "&");
+      const htmlUrl = String(rawUrl || "");
+      const imageUrl = htmlUrl.replace(/&amp;/g, "&");
       const proxied = "/media/image?src=" + encodeURIComponent(imageUrl);
-      return '<figure class="articlePhoto"><img src="'+proxied+'" alt="'+alt+'" loading="lazy" decoding="async"><figcaption>'+alt+'</figcaption></figure>';
+      return `<figure class="articlePhoto"><img src="${htmlUrl}" data-proxy="${proxied}" alt="${alt}" loading="lazy" decoding="async" onerror="if(this.dataset.fallback!=='1'){this.dataset.fallback='1';this.src=this.dataset.proxy}else{this.onerror=null}"><figcaption>${alt}</figcaption></figure>`;
     })
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
     .replace(/^## (.+)$/gm, function(_, title){ h2Index += 1; return '<h2 id="section-'+h2Index+'">'+title+'</h2>'; })
@@ -2788,7 +2790,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.2.1 / IMAGE PROXY FIX</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.2.2 / DIRECT-FIRST IMAGE</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2862,7 +2864,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.2.1</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.2.2</div>
       </form>
     </section>
 
@@ -2950,7 +2952,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.2.1</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.2.2</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
