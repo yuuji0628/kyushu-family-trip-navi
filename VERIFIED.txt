@@ -1,22 +1,16 @@
 事前検証済み
 - Worker syntax: OK
-- SEO title auto: OK
-- SEO description auto: OK
-- FAQ visible: OK
-- FAQ schema: OK
-- Hotel schema: OK
-- ImageObject schema: OK
-- Breadcrumb: OK
-- Article schema: OK
-- Purpose internal links: OK
-- SEO hub: OK
-- Hub route: OK
-- Hub sitemap: OK
-- Intent generator: OK
+- Image proxy route: OK
+- Secure allowlist: OK
+- Rakuten referer: OK
+- Retry without referer: OK
+- Image content-type validation: OK
+- Fallback SVG: OK
+- Existing D1 images use proxy: OK
+- Future collector restricted: OK
+- SEO MAX retained: OK
 - Photo-driven retained: OK
-- Reader cleanup retained: OK
-- Family magazine retained: OK
-- Room classification retained: OK
+- Family design retained: OK
 - Native hotel search retained: OK
 - Native login retained: OK
 - Native create retained: OK
@@ -26,4 +20,4 @@
 - Cron retained: OK
 - node --check: OK
 
-本番Googleクロール・Search Console・楽天API・Cloudflare D1/Secretsを使うライブ検証はローカルでは未実施です。
+※ 楽天側の実画像URLへの本番フェッチはCloudflare Worker上で動作するため、ローカルではライブ検証していません。
