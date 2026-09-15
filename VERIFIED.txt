@@ -1,11 +1,13 @@
 事前検証済み
-- Long editorial disclosure removed: OK
-- Long ad disclosure removed: OK
-- Top PR retained: OK
-- Editorial-policy link retained: OK
-- Family article design retained: OK
-- Photo classification fix retained: OK
-- Full photo gallery retained: OK
+- Worker syntax: OK
+- Quick summary cards: OK
+- Magazine hero style: OK
+- Colored section rhythm: OK
+- Mobile sticky booking: OK
+- Family design retained: OK
+- Photo gallery retained: OK
+- Room classification retained: OK
+- Variation retained: OK
 - Native hotel search retained: OK
 - Native login retained: OK
 - Native create retained: OK
