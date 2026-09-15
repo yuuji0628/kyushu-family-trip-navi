@@ -835,7 +835,18 @@ function buildFamilyHotelArticle(hotel) {
   const allImages = [...byUrl.values()];
   const originalsBy = category => allImages.filter(x => x.category === category && !x.isThumbnail);
 
-  const roomImages = originalsBy("room");
+  const looksLikeMeal = img => /breakfast|dinner|meal|food|restaurant|cuisine|buffet|朝食|夕食|食事|料理|バイキング|ビュッフェ/i.test(String(img?.url || ""));
+  const looksLikePool = img => /pool|aqua|swimming|プール|水遊び/i.test(String(img?.url || ""));
+  const looksLikeBath = img => /bath|onsen|spa|hotspring|露天|温泉|風呂|大浴場/i.test(String(img?.url || ""));
+  const looksLikeRoom = img => /room|guestroom|bedroom|bed|客室|和室|洋室/i.test(String(img?.url || ""));
+
+  // Room section is strict: ambiguous images do not enter it.
+  const verifiedRoomImages = originalsBy("room").filter(img =>
+    looksLikeRoom(img) && !looksLikeMeal(img) && !looksLikePool(img) && !looksLikeBath(img)
+  );
+
+
+  const roomImages = verifiedRoomImages;
   const mealImages = originalsBy("meal");
   const bathImages = originalsBy("bath");
   const poolImages = originalsBy("pool");
@@ -866,6 +877,7 @@ function buildFamilyHotelArticle(hotel) {
   const articleFacilityImages = uniqueSectionImages(facilityImages.slice(2));
   const articlePlanImages = uniqueSectionImages(planImages);
   const articleOtherImages = uniqueSectionImages(otherImages);
+  const articleAllRemainingImages = uniqueSectionImages(allImages.filter(x => !x.isThumbnail));
 
   const photoBlock = (url, alt, caption) => url
     ? `![${alt}](${url})\n\n*${caption}*\n\n`
@@ -934,7 +946,7 @@ ${special ? `楽天トラベルの施設紹介には「${special}」とありま
 
 ## 客室・内装を写真でチェック
 
-${articleRoomImages.length ? photoGalleryBlock(articleRoomImages, "客室・内装", "楽天トラベルから取得した客室写真です。部屋タイプによって広さや設備は異なります。") : `*客室専用の高解像度写真を取得できなかったため、外観・プールなど別カテゴリの画像で代用していません。予約ページで客室タイプごとの写真をご確認ください。*\n\n`}
+${articleRoomImages.length ? photoGalleryBlock(articleRoomImages, "客室・内装", "楽天トラベルから取得した客室写真です。部屋タイプによって広さや設備は異なります。") : `*客室と安全に判別できる高解像度写真を取得できなかったため、食事・プール・外観などの写真を客室写真として代用していません。取得できた写真自体は後半の「楽天掲載写真」に掲載します。*\n\n`}
 子連れでは、客室の豪華さよりも「荷物を広げても動きやすいか」「寝かしつけしやすいか」「誰がどこで寝るか」を想像して選ぶのが大切です。
 
 > CHECK: 客室写真だけで決めず、定員・寝具・禁煙喫煙・バス・トイレ・添い寝条件まで確認してください。
@@ -949,7 +961,8 @@ ${hasOnsen ? `温泉・大浴場系の設備があるホテルなら、観光を
 ${hasKids ? `キッズ・ファミリー向け設備が案内されている場合は、対象年齢と利用時間を確認しておくと、子どもの昼寝や夕食時間と合わせやすくなります。` : ""}
 
 ${photoGalleryBlock(articlePlanImages, "宿泊プラン・施設", "楽天トラベルから取得した宿泊プラン関連の写真です。")}
-${photoGalleryBlock(articleOtherImages, "その他の写真", "楽天トラベルから取得したその他の写真です。")}
+${photoGalleryBlock(articleOtherImages, "楽天掲載写真", "写真カテゴリを安全に判別できないため、誤った説明を付けず楽天掲載写真として表示しています。")}
+${photoGalleryBlock(articleAllRemainingImages, "その他の楽天掲載写真", "取得できた写真を重複なく掲載しています。")}
 
 ## 編集部ならここから見る
 
@@ -1856,15 +1869,20 @@ function findHotelSection(item, key) {
 }
 
 
-function rakutenImageCategory(path = "") {
-  const p = String(path).toLowerCase();
-  if (/room|guest|bed|客室/.test(p)) return "room";
-  if (/breakfast|dinner|meal|food|restaurant|cuisine|朝食|夕食|食事|料理/.test(p)) return "meal";
-  if (/bath|onsen|spa|hot.?spring|露天|温泉|風呂|大浴場/.test(p)) return "bath";
-  if (/pool|aqua|water|プール|水遊び/.test(p)) return "pool";
+function rakutenImageCategory(path = "", url = "") {
+  const p = (String(path) + " " + String(url)).toLowerCase();
+
+  // Strong visual-category cues take priority over generic field names such as roomImageUrl.
+  if (/breakfast|dinner|meal|food|restaurant|cuisine|buffet|breakfastbuffet|朝食|夕食|食事|料理|バイキング|ビュッフェ/.test(p)) return "meal";
+  if (/pool|aqua|waterpool|swimming|プール|水遊び/.test(p)) return "pool";
+  if (/bath|onsen|spa|hotspring|hot-spring|露天|温泉|風呂|大浴場/.test(p)) return "bath";
   if (/lobby|facility|facilities|hall|館内|施設/.test(p)) return "facility";
   if (/plan/.test(p)) return "plan";
-  if (/hotel|main|exterior|外観/.test(p)) return "hotel";
+  if (/hotel|main|exterior|outside|外観/.test(p)) return "hotel";
+
+  // Room is deliberately last. Rakuten sometimes returns a non-room photo in roomImageUrl.
+  // Only use "room" when there is an additional room/bed/guest cue in URL/path.
+  if (/room|guestroom|bedroom|bed|客室|和室|洋室/.test(p)) return "room";
   return "other";
 }
 
@@ -1872,7 +1890,7 @@ function collectRakutenImages(node, path = "", out = []) {
   if (!node) return out;
   if (typeof node === "string") {
     if (/^https?:\/\//i.test(node) && /\.(?:jpe?g|png|webp)(?:\?|$)/i.test(node)) {
-      out.push({ url:node, category:rakutenImageCategory(path), path });
+      out.push({ url:node, category:rakutenImageCategory(path, node), path });
     }
     return out;
   }
@@ -1893,12 +1911,20 @@ function normalizeRakutenImageGallery(item, basic = {}) {
   [
     ["hotel", basic.hotelImageUrl],
     ["hotel", basic.hotelThumbnailUrl],
-    ["room", basic.roomImageUrl],
-    ["room", basic.roomThumbnailUrl],
+    ["roomCandidate", basic.roomImageUrl],
+    ["roomCandidate", basic.roomThumbnailUrl],
     ["plan", basic.planImageUrl],
     ["plan", basic.planThumbnailUrl]
   ].forEach(([category,url]) => {
-    if (url) raw.push({url,category,path:"basic."+category});
+    if (!url) return;
+    const detected = category === "roomCandidate"
+      ? rakutenImageCategory("basic.roomImageUrl", url)
+      : category;
+    raw.push({
+      url,
+      category: detected === "room" ? "room" : (category === "roomCandidate" ? "other" : detected),
+      path:"basic."+category
+    });
   });
 
   const isThumb = x => /thumbnail/i.test(x.path || "") || /thumbnail/i.test(x.url || "");
@@ -2387,7 +2413,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.9.0 / FULL PHOTO GALLERY</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.9.1 / PHOTO CLASSIFY FIX</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2461,7 +2487,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.9.0</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.9.1</div>
       </form>
     </section>
 
@@ -2549,7 +2575,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.9.0</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.9.1</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
