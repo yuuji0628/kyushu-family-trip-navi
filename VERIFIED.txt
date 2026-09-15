@@ -1,14 +1,12 @@
 事前検証済み
 
-- ('3回リトライ', True): OK
-- ('レート制限検知', True): OK
-- ('待機処理', True): OK
-- ('楽天HTTP表示', True): OK
-- ('Application ID維持', True): OK
-- ('Access Key維持', True): OK
-- ('Affiliate ID維持', True): OK
-- ('D1維持', True): OK
-- ('管理認証維持', True): OK
+- Referer追加: OK
+- 自動リトライ維持: OK
+- Application ID維持: OK
+- Access Key維持: OK
+- Affiliate ID維持: OK
+- D1維持: OK
+- 管理認証維持: OK
 - node --check: OK
 
-※Cloudflare内の秘密値にはアクセスできないため、楽天API実接続の最終確認はデプロイ後に1回だけ必要です。
+※楽天API実接続はCloudflareの秘密値が必要なため、デプロイ後に管理画面から1回検索して最終確認してください。

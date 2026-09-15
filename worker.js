@@ -398,7 +398,12 @@ async function handleRakutenHotelSearch(request, env) {
   let lastStatus = 0;
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    r = await fetch(apiUrl, { headers: { "accept": "application/json" } });
+    r = await fetch(apiUrl, {
+      headers: {
+        "accept": "application/json",
+        "referer": "https://kyushu-family-trip-navi-worker.rrwpvwmz8p.workers.dev/"
+      }
+    });
     lastStatus = r.status;
     text = await r.text();
 

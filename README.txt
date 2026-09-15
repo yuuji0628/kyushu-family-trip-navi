@@ -1,11 +1,11 @@
-楽天ホテル検索 自動化 v6.2
+楽天ホテル検索 自動化 v6.3
 
 今回の修正:
-- 楽天APIのレート制限を自動検知
-- 最大3回まで自動再試行
-- 1回目 1.3秒、2回目 2.6秒待機
-- 楽天側HTTPステータスとエラー本文を管理画面に表示
-- 既存のCloudflare変数・シークレット・D1バインディングは変更しません
+- 楽天APIが要求する HTTP Referer を追加
+- Referer は楽天Web Serviceに登録した公開サイトURL:
+  https://kyushu-family-trip-navi-worker.rrwpvwmz8p.workers.dev/
+- v6.2 のレート制限自動リトライも維持
+- Cloudflareの既存シークレット / 変数 / D1バインディングは変更しません
 
-GitHubのルート直下 worker.js だけ置き換えてください。
-Cloudflareの変数・シークレットは触らなくてOKです。
+GitHubルート直下の worker.js だけ置き換えてください。
+Cloudflare側の変数・シークレットは触らなくてOKです。
