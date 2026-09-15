@@ -1,8 +1,12 @@
 事前検証済み
+- quality panel removed: OK
+- image fields: OK
+- photo markdown: OK
+- pool detection: OK
+- onsen detection: OK
+- GitHub ZIP retained: OK
+- article list retained: OK
+- Cron retained: OK
+- Rakuten retained: OK
+- D1 retained: OK
 - node --check: OK
-- SEO品質エンジン: OK
-- 品質ゲート: OK
-- 内部リンク: OK
-- 構造化データ: OK
-- 編集方針ページ: OK
-- 楽天Affiliate/Cron/D1維持: OK
