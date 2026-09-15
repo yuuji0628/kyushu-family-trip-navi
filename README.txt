@@ -1,22 +1,22 @@
-v7.6.3｜記事内写真の誤表示・重複修正版
+v7.6.4｜削除ボタンをJavaScript非依存に変更
 
-スクリーンショットで確認できた問題:
-- 外観写真が「客室・内装」として表示されていた
-- 同じ外観写真が客室・館内施設・滞在イメージで何度も繰り返されていた
-- プール専用写真が無いのに、写真がプール写真のように見える構成になっていた
+原因:
+Native Login後は認証がHttpOnly Cookie中心になっていますが、
+削除ボタンはまだJavaScriptの articleDeleteDirect() に依存していました。
+そのためiPhoneでボタン操作が安定しない/認証情報を取得できないケースが残っていました。
 
 修正:
-- 同一画像URLは記事内で1回だけ表示
-- 客室セクションは roomImageUrl / roomThumbnailUrl が取得できた時だけ客室写真として表示
-- 客室写真が無い場合は、外観写真で代用しない
-- 汎用ホテル画像は「施設イメージ」としてのみ表示
-- プール・温泉の文章は施設情報から作るが、写真を勝手にプール写真・温泉写真と断定しない
-- 画像が足りなければ無理に4枚埋めない
+- 削除ボタンを通常のHTMLフォームに変更
+- POST /admin-delete-article をWorker側で直接処理
+- Cookie認証でD1から記事を削除
+- 削除後は管理画面へ戻り、削除結果を表示
+- 削除ボタン自体はonclickを使用しない
 
-既存機能:
-Native Login / Native記事作成 / Server Render / 記事編集削除 /
-GitHub ZIP / 楽天API / D1 / Cron を維持
+維持:
+Native Login / Native記事作成 / Server Render / 写真品質改善 /
+GitHub ZIP / 楽天API / D1 / Cron
 
 反映後:
-dashboard v7.6.3 / PHOTO QUALITY
+dashboard v7.6.4 / NATIVE DELETE
+article list v7.6.4 / NATIVE DELETE
 と表示されます。
