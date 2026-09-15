@@ -1,13 +1,20 @@
 事前検証済み
-- direct edit: OK
-- direct delete: OK
-- delete button: OK
-- DELETE API retained: OK
-- version marker: OK
-- photo articles: OK
-- GitHub: OK
-- Cron: OK
+- Worker syntax: OK
+- Inline scripts syntax: OK
+- Server snapshot: OK
+- Async adminPage: OK
+- Server stats: OK
+- Server article list: OK
+- Server recent activity: OK
+- Native login: OK
+- Auto create: OK
+- Article edit: OK
+- Article delete: OK
+- GitHub ZIP: OK
 - Rakuten: OK
 - D1: OK
-- Worker syntax: OK
-- Admin inline scripts syntax: OK
+- Cron: OK
+- Photo article: OK
+- No initial loading placeholders: OK
+
+Cloudflare本番D1/Secretsを使ったライブ実行だけは、このローカル環境では実施していません。
