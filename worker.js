@@ -193,6 +193,57 @@ async function handleAdminDeleteArticle(request, env) {
   }
 }
 
+
+async function handleAdminHotelArticleCreate(request, env) {
+  if (!requireAuth(request, env)) {
+    return new Response(null, { status:303, headers:{ location:"/admin.html?hotelCreate=unauthorized" } });
+  }
+  if (request.method !== "POST") {
+    return new Response(null, { status:303, headers:{ location:"/admin.html" } });
+  }
+
+  try {
+    const form = await request.formData();
+    const hotelJson = String(form.get("hotelJson") || "");
+    const rakutenUrl = String(form.get("rakutenUrl") || "").trim();
+    const hotel = hotelJson ? JSON.parse(hotelJson) : {};
+
+    const headers = new Headers(request.headers);
+    headers.set("content-type", "application/json");
+
+    const apiRequest = new Request(new URL("/api/hotel-article", request.url), {
+      method:"POST",
+      headers,
+      body:JSON.stringify({ hotel, rakutenUrl })
+    });
+
+    const apiResponse = await createGenericHotelArticle(apiRequest, env);
+    const data = await apiResponse.json().catch(() => ({}));
+
+    const q = new URLSearchParams();
+    if (apiResponse.ok) {
+      q.set("hotelCreate", "success");
+      q.set("msg", String(data.title || hotel.hotelName || "記事を作成しました").slice(0,180));
+      if (data.url) q.set("article", String(data.url));
+    } else {
+      q.set("hotelCreate", "error");
+      q.set("msg", String(data.error || ("HTTP " + apiResponse.status)).slice(0,180));
+    }
+    return new Response(null, {
+      status:303,
+      headers:{ location:"/admin.html?" + q.toString(), "cache-control":"no-store" }
+    });
+  } catch (e) {
+    const q = new URLSearchParams();
+    q.set("hotelCreate", "error");
+    q.set("msg", String(e?.message || e).slice(0,180));
+    return new Response(null, {
+      status:303,
+      headers:{ location:"/admin.html?" + q.toString(), "cache-control":"no-store" }
+    });
+  }
+}
+
 function handleAdminLogout() {
   return new Response(null, {
     status:303,
@@ -378,6 +429,8 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .miniBadge.ok{background:#eaf7f1;color:#16714f}.miniBadge.affiliate{background:#fff5df;color:#8a6200}
 .contentActions{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;position:relative;z-index:20}.contentActions .btn{padding:10px 14px;font-size:13px;min-height:44px;touch-action:manipulation;position:relative;z-index:21}.dangerBtn{background:#fff1f1!important;color:#a52a2a!important;border-color:#efcaca!important}.nativeDeleteForm{margin:0;display:inline-flex}.nativeDeleteForm .dangerBtn{min-height:44px}
 .errorNotice{border-color:#efd0d0;background:#fff7f7}
+.nativeHotelSearchForm{margin:0}.nativeHotelResults{display:grid;gap:12px;margin-top:14px}.nativeHotelCard{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:18px;background:#fff}.nativeHotelCard img{width:86px;height:72px;object-fit:cover;border-radius:12px}.nativeHotelInfo{display:grid;gap:4px;min-width:0}.nativeHotelInfo b{font-size:14px;line-height:1.4}.nativeHotelInfo span,.nativeHotelInfo small{font-size:11px;color:var(--muted)}.selectedHotelBox{display:grid;gap:10px;margin-top:16px;padding:16px;border:1px solid #b9d9ca;border-radius:18px;background:#f4fbf8}.selectedHotelHead{font-size:11px;color:var(--muted);font-weight:800}.selectedHotelBox>img{width:100%;max-height:260px;object-fit:cover;border-radius:14px}.selectedHotelBox form{margin:0}.selectedHotelBox .btn{width:100%}
+
 
 
 .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.small{font-size:13px;color:var(--muted)}.status{padding:10px 14px;border-radius:10px;background:var(--soft);margin:12px 0}.preview{margin-top:10px;border:1px dashed var(--line);border-radius:14px;min-height:90px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--muted)}.preview img{width:100%;max-height:260px;object-fit:cover}
@@ -1907,6 +1960,71 @@ async function adminPage(request, env) {
   const autoArticleUrl = adminUrl.searchParams.get("article") || "";
   const deleteResult = adminUrl.searchParams.get("delete") || "";
   const deleteMessage = adminUrl.searchParams.get("msg") || "";
+  const hotelSearchKeyword = (adminUrl.searchParams.get("hotelSearch") || "").trim();
+  const hotelPick = adminUrl.searchParams.get("hotelPick") || "";
+  const hotelCreateResult = adminUrl.searchParams.get("hotelCreate") || "";
+  const hotelCreateMessage = adminUrl.searchParams.get("msg") || "";
+  const hotelCreateArticleUrl = adminUrl.searchParams.get("article") || "";
+
+  let hotelSearchData = null;
+  let hotelSearchError = "";
+  let selectedHotel = null;
+
+  if (serverAuthed && hotelSearchKeyword.length >= 2) {
+    try {
+      const searchUrl = new URL("/api/rakuten-hotels", request.url);
+      searchUrl.searchParams.set("keyword", hotelSearchKeyword);
+      const searchHeaders = new Headers(request.headers);
+      searchHeaders.set("referer", new URL("/admin.html", request.url).toString());
+
+      const searchReq = new Request(searchUrl, { method:"GET", headers:searchHeaders });
+      const searchRes = await handleRakutenHotelSearch(searchReq, env);
+      const searchJson = await searchRes.json().catch(() => ({}));
+
+      if (searchRes.ok) {
+        hotelSearchData = searchJson;
+        if (hotelPick) {
+          selectedHotel = (searchJson.hotels || []).find(h => String(h.hotelNo || "") === String(hotelPick)) || null;
+        }
+      } else {
+        hotelSearchError = String(searchJson.rakutenMessage || searchJson.error || ("HTTP " + searchRes.status));
+      }
+    } catch (e) {
+      hotelSearchError = String(e?.message || e);
+    }
+  }
+
+  const hotelSearchResultsHtml = hotelSearchData
+    ? ((hotelSearchData.hotels || []).length
+        ? `<div class="nativeHotelResults">${(hotelSearchData.hotels || []).map(h => {
+            const price = h.hotelMinCharge ? Number(h.hotelMinCharge).toLocaleString() + "円〜" : "料金は予約ページで確認";
+            const rating = h.reviewAverage ? `★${esc(h.reviewAverage)}` : "";
+            const href = `/admin.html?hotelSearch=${encodeURIComponent(hotelSearchKeyword)}&hotelPick=${encodeURIComponent(h.hotelNo || "")}#hotel-search`;
+            return `<div class="nativeHotelCard">
+              ${h.hotelThumbnailUrl || h.hotelImageUrl ? `<img src="${esc(h.hotelThumbnailUrl || h.hotelImageUrl)}" alt="${esc(h.hotelName)}" loading="lazy">` : ""}
+              <div class="nativeHotelInfo">
+                <b>${esc(h.hotelName)}</b>
+                <span>${esc(h.address || "")}</span>
+                <small>${esc(price)}${rating ? ` ・ ${rating}` : ""}</small>
+              </div>
+              <a class="btn sub" href="${href}">このホテルを使う</a>
+            </div>`;
+          }).join("")}</div>`
+        : `<div class="smartNotice">該当するホテルが見つかりませんでした。</div>`)
+    : "";
+
+  const selectedHotelHtml = selectedHotel ? `<div class="selectedHotelBox">
+      <div class="selectedHotelHead">選択中のホテル</div>
+      <b>${esc(selectedHotel.hotelName)}</b>
+      <span>${esc(selectedHotel.address || "")}</span>
+      ${selectedHotel.hotelImageUrl || selectedHotel.hotelThumbnailUrl ? `<img src="${esc(selectedHotel.hotelImageUrl || selectedHotel.hotelThumbnailUrl)}" alt="${esc(selectedHotel.hotelName)}" loading="lazy">` : ""}
+      <form method="post" action="/admin-hotel-article">
+        <input type="hidden" name="hotelJson" value="${esc(JSON.stringify(selectedHotel))}">
+        <input type="hidden" name="rakutenUrl" value="${esc(selectedHotel.hotelInformationUrl || selectedHotel.planListUrl || "")}">
+        <button class="btn" type="submit">このホテルの記事を自動作成</button>
+      </form>
+    </div>` : "";
+
   const adminSnapshot = serverAuthed ? await loadAdminSnapshot(env) : {
     published:0, affiliateCount:0, successRuns:0, recentRuns:[], articles:[], lastRun:null, warning:""
   };
@@ -1977,7 +2095,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.7.0 / FAMILY ARTICLE</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.7.1 / NATIVE HOTEL SEARCH</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2051,7 +2169,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.7.0</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.7.1</div>
       </form>
     </section>
 
@@ -2104,19 +2222,22 @@ async function adminPage(request, env) {
                 : `記事作成エラー：${esc(autoMessage)}`)
           : `準備完了。ボタンを押すと1記事作成します。`}</div>
       </div>
-      <div class="panel" style="margin:12px 0;background:#fbfffd">
+      <div id="hotel-search" class="panel" style="margin:12px 0;background:#fbfffd">
         <h3 style="margin-top:0">🟥 楽天ホテル検索</h3>
-        <p class="small">ホテル名を入力 → 楽天トラベルAPIで検索 → 候補を選ぶとアフィリエイトURLを自動入力します。さらに、そのホテルの記事を自動作成できます。</p>
-        <div class="row">
-          <div class="field"><input id="rakutenKeyword" class="input" placeholder="例：杉乃井ホテル"></div>
-          <div class="field"><button id="rakutenSearchBtn" class="btn" type="button">楽天で検索</button></div>
-        </div>
-        <div id="rakutenSearchStatus" class="small"></div>
-        <div id="rakutenResults"></div>
-        <div id="hotelArticleAutoBox" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid #d8e6df">
-          <button id="hotelArticleBtn" class="btn" type="button">このホテルの記事を自動作成</button>
-          <div id="hotelArticleStatus" class="small" style="margin-top:8px"></div>
-        </div>
+        <p class="small">ホテル名を入力 → 楽天トラベルAPIで検索 → 候補選択 → 記事作成まで、JavaScriptに依存せず実行します。</p>
+
+        <form method="get" action="/admin.html" class="nativeHotelSearchForm">
+          <div class="row">
+            <div class="field"><input name="hotelSearch" class="input" placeholder="例：杉乃井ホテル" value="${esc(hotelSearchKeyword)}" required minlength="2"></div>
+            <div class="field"><button class="btn" type="submit">楽天で検索</button></div>
+          </div>
+        </form>
+
+        ${hotelSearchError ? `<div class="smartNotice errorNotice">検索エラー：${esc(hotelSearchError)}</div>` : ""}
+        ${hotelSearchData ? `<div class="small" style="margin:10px 0">${hotelSearchData.count || 0}件見つかりました。${hotelSearchData.affiliateEnabled ? " アフィリエイトURL対応済み。" : ""}</div>` : ""}
+        ${hotelSearchResultsHtml}
+        ${selectedHotelHtml}
+        ${hotelCreateResult ? `<div class="smartNotice ${hotelCreateResult === "success" ? "" : "errorNotice"}" style="margin-top:12px">${hotelCreateResult === "success" ? `記事作成完了 ✅ ${esc(hotelCreateMessage)}${hotelCreateArticleUrl ? ` <a href="${esc(hotelCreateArticleUrl)}" target="_blank">公開記事を見る</a>` : ""}` : `記事作成エラー：${esc(hotelCreateMessage)}`}</div>` : ""}
       </div>
       <div class="field"><label>楽天トラベルURL</label><input id="rakuten" class="input"></div>
       <div class="field"><label>じゃらんURL</label><input id="jalan" class="input"></div>
@@ -2136,7 +2257,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.7.0</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.7.1</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
@@ -2903,121 +3024,7 @@ var directGithubZipFiles=[];
     if(r.ok) loadArticles(); else alert("削除に失敗しました");
   }
   // 旧品質アップデート用ハンドラを完全削除。
-  if ($("rakutenSearchBtn")) $("rakutenSearchBtn").onclick=async function(){
-    var kw=$("rakutenKeyword").value.trim();
-    if(kw.length<2){$("rakutenSearchStatus").textContent="ホテル名を2文字以上入力してください。";return;}
-    $("rakutenSearchStatus").textContent="楽天トラベルを検索中...";
-    $("rakutenResults").innerHTML="";
-    var r=await fetch("/api/rakuten-hotels?keyword="+encodeURIComponent(kw),{headers:headers()});
-    var d=await r.json().catch(function(){return {};});
-    if(!r.ok){
-      var upstream=d.rakutenStatus?(" / 楽天HTTP "+d.rakutenStatus):"";
-      var detail=(d.rakutenError||d.rakutenMessage)?(" / "+(d.rakutenError||"")+(d.rakutenMessage?": "+d.rakutenMessage:"")):"";
-      $("rakutenSearchStatus").textContent="検索失敗: HTTP "+r.status+" "+(d.error||"")+upstream+detail;
-      return;
-    }
-    $("rakutenSearchStatus").textContent=d.count+"件見つかりました。"+(d.affiliateEnabled?" アフィリエイトURL対応済み。":" ※Affiliate ID未設定のため通常URLです。");
-    var rows=d.hotels||[];
-    $("rakutenResults").innerHTML=rows.map(function(h,i){
-      var price=h.hotelMinCharge?(" / 最安目安 "+Number(h.hotelMinCharge).toLocaleString()+"円〜"):"";
-      var rating=h.reviewAverage?(" / ★"+h.reviewAverage):"";
-      var img=h.hotelThumbnailUrl?('<img class="rakutenResultImg" src="'+h.hotelThumbnailUrl.replace(/"/g,"&quot;")+'" alt="">'):"";
-      return '<div class="rakutenResultCard">'+img+
-        '<div class="rakutenResultInfo"><b class="rakutenHotelName">'+escapeHtmlClient(h.hotelName)+'</b><div class="small">'+escapeHtmlClient(h.address||"")+price+rating+'</div></div>'+
-        '<button type="button" class="btn sub rakutenUseBtn" data-i="'+i+'">このホテルを使う</button></div>';
-    }).join("") || "<p>候補がありません。</p>";
-    Array.from(document.querySelectorAll(".rakutenUseBtn")).forEach(function(b){
-      b.onclick=function(){
-        var h=rows[Number(b.dataset.i)];
-        $("rakuten").value=h.hotelInformationUrl||h.planListUrl||"";
-        if(!$("coverImage").value && (h.hotelImageUrl||h.hotelThumbnailUrl)){
-          $("coverImage").value=h.hotelImageUrl||h.hotelThumbnailUrl;
-          if(typeof updatePreview==="function") updatePreview();
-        }
-        if(!$("coverAlt").value) $("coverAlt").value=h.hotelName||"";
-        window.__selectedRakutenHotel=h;
-        $("hotelArticleAutoBox").style.display="block";
-        $("hotelArticleStatus").textContent="";
-        $("rakutenSearchStatus").textContent="選択しました："+h.hotelName+"。このまま記事を自動作成できます。";
-      };
-    });
-  };
-
-
-  async function refreshAutoHotelStatus(){
-    try{
-      var r=await fetch("/api/auto-hotel",{headers:headers()});
-      var d=await r.json();
-      if(!r.ok){$("autoHotelStatus").textContent="状態取得失敗";return;}
-      if(!d.last){
-        $("autoHotelStatus").textContent="まだ自動実行履歴はありません。";
-        return;
-      }
-      var x=d.last;
-      $("autoHotelStatus").textContent=
-        "最終実行: "+(x.runAt||"")+" / "+(x.status||"")+
-        (x.prefecture?(" / "+x.prefecture):"")+
-        (x.hotelName?(" / "+x.hotelName):"")+
-        (x.message?(" / "+x.message):"");
-    }catch(e){
-      $("autoHotelStatus").textContent="状態取得に失敗しました。";
-    }
-  }
-
-  if ($("autoHotelRunBtn")) $("autoHotelRunBtn").onclick=async function(){
-    $("autoHotelRunBtn").disabled=true;
-    $("autoHotelStatus").textContent="九州のおすすめホテルを検索して記事を作成中...";
-    try{
-      var r=await fetch("/api/auto-hotel",{method:"POST",headers:headers()});
-      var d=await r.json().catch(function(){return {};});
-      if(!r.ok){
-        $("autoHotelStatus").textContent="自動作成失敗: "+(d.error||("HTTP "+r.status));
-      }else if(d.skipped){
-        $("autoHotelStatus").textContent="今回はスキップ: "+(d.reason||"候補なし");
-      }else{
-        $("autoHotelStatus").innerHTML=
-          "自動作成完了 ✅ "+escapeHtmlClient(d.hotelName||"")+
-          ' <a href="'+d.url+'" target="_blank">記事を見る</a>';
-        loadArticles();
-      }
-    }catch(e){
-      $("autoHotelStatus").textContent="自動作成に失敗しました。";
-    }
-    $("autoHotelRunBtn").disabled=false;
-    loadDashboard();
-  };
-
-  // refreshAutoHotelStatus is called after login through the dashboard flow.
-
-  if ($("hotelArticleBtn")) $("hotelArticleBtn").onclick=async function(){
-    var h=window.__selectedRakutenHotel||{};
-    var rakutenUrl=$("rakuten").value.trim();
-    if(!h.hotelName||!rakutenUrl){
-      $("hotelArticleStatus").textContent="先にホテル候補の「このホテルを使う」を押してください。";
-      return;
-    }
-
-    $("hotelArticleBtn").disabled=true;
-    $("hotelArticleStatus").textContent=h.hotelName+"の記事を自動作成中...";
-
-    var r=await fetch("/api/hotel-article",{
-      method:"POST",
-      headers:headers(),
-      body:JSON.stringify({hotel:h,rakutenUrl:rakutenUrl})
-    });
-    var d=await r.json().catch(function(){return {};});
-    $("hotelArticleBtn").disabled=false;
-
-    if(!r.ok){
-      $("hotelArticleStatus").textContent="作成失敗: HTTP "+r.status+" "+(d.error||"");
-      return;
-    }
-
-    $("hotelArticleStatus").innerHTML=
-      '作成完了 ✅ 約'+Number(d.charCount||0).toLocaleString()+
-      '文字 <a href="'+d.url+'" target="_blank">公開記事を確認する</a>';
-    loadArticles();
-  };
+  // v7.7.1: 楽天ホテル検索はNativeフォーム化済み。
 
   function escapeHtmlClient(v){
     return String(v||"").replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});
@@ -3094,6 +3101,7 @@ export default {
       if (url.pathname === "/admin-login") return await handleAdminLogin(request, env);
       if (url.pathname === "/admin-logout") return handleAdminLogout();
       if (url.pathname === "/admin-delete-article") return await handleAdminDeleteArticle(request, env);
+      if (url.pathname === "/admin-hotel-article") return await handleAdminHotelArticleCreate(request, env);
       if (url.pathname === "/admin-auto-create") return await handleAdminAutoCreate(request, env);
       if (url.pathname === "/admin.html") return await adminPage(request, env);
       return html(layout("ページが見つかりません", '<main class="article"><h1>404</h1><p>ページが見つかりません。</p></main>'), { status:404 });
