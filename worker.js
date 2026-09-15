@@ -220,7 +220,7 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .contentMeta{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:7px;font-size:11px;color:var(--muted)}
 .miniBadge{display:inline-flex;padding:4px 8px;border-radius:999px;background:#f1f4f3;font-weight:800}
 .miniBadge.ok{background:#eaf7f1;color:#16714f}.miniBadge.affiliate{background:#fff5df;color:#8a6200}
-.contentActions{display:flex;gap:7px;flex-shrink:0}.contentActions .btn{padding:8px 11px;font-size:12px}
+.contentActions{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;position:relative;z-index:20}.contentActions .btn{padding:10px 14px;font-size:13px;min-height:44px;touch-action:manipulation;position:relative;z-index:21}.dangerBtn{background:#fff1f1!important;color:#a52a2a!important;border-color:#efcaca!important}
 .errorNotice{border-color:#efd0d0;background:#fff7f7}
 
 
@@ -1630,7 +1630,7 @@ function adminPage() {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.4.0 / <span id="directDashVersion">direct loader</span></div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.4.1 / <span id="directDashVersion">direct loader</span></div>
       </div>
       <div class="heroActions">
         <button id="dashAutoRunBtn" class="btn" type="button">今すぐ1記事作成</button>
@@ -1696,7 +1696,7 @@ function adminPage() {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.4.0</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.4.1</div>
       </form>
     </section>
 
@@ -1773,7 +1773,7 @@ function adminPage() {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.2.9</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.4.1</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="articleListLoadDirect()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       <div id="articleList">読み込み中...</div>
@@ -1919,7 +1919,8 @@ async function articleListLoadDirect(){
         '</div>'+
         '<div class="contentActions">'+
           '<a class="btn sub" target="_blank" href="/article.html?id='+encodeURIComponent(a.id||"")+'">表示</a>'+
-          '<button class="btn sub" type="button" onclick="articleEditorOpenDirect('+JSON.stringify(String(a.id||""))+')">編集</button>'+
+          '<button class="btn sub" type="button" onclick="articleEditDirect('+JSON.stringify(String(a.id||""))+')">編集</button>'+
+          '<button class="btn dangerBtn" type="button" onclick="articleDeleteDirect('+JSON.stringify(String(a.id||""))+','+JSON.stringify(String(a.title||""))+')">削除</button>'+
         '</div>'+
       '</div>';
     }).join("");
@@ -1933,7 +1934,38 @@ async function articleListLoadDirect(){
   }
 }
 
-async function articleEditorOpenDirect(id){
+
+
+
+async function articleDeleteDirect(id,title){
+  if(!id) return;
+  if(!confirm("この記事を削除します。\n\n"+(title||id)+"\n\nこの操作は元に戻せません。")) return;
+
+  try{
+    var pw=sessionStorage.getItem("adminPassword")||"";
+    var r=await fetch("/api/articles",{
+      method:"DELETE",
+      cache:"no-store",
+      headers:{
+        "content-type":"application/json",
+        "x-admin-password":pw
+      },
+      body:JSON.stringify({id:id})
+    });
+    var text=await r.text();
+    var d={};
+    try{d=text?JSON.parse(text):{};}catch(e){d={raw:text};}
+    if(!r.ok) throw new Error(d.error||d.raw||("HTTP "+r.status));
+
+    alert("削除しました");
+    await articleListLoadDirect();
+    if(typeof dashboardLoadDirect==="function") dashboardLoadDirect();
+  }catch(e){
+    alert("削除に失敗しました: "+(e&&e.message?e.message:"不明なエラー"));
+  }
+}
+
+async function articleEditDirect(id){
   var details=document.getElementById("articleEditorSection");
   if(details) details.open=true;
 
@@ -1959,7 +1991,9 @@ async function articleEditorOpenDirect(id){
     setv("keywords",(a.seo&&a.seo.keywords)||"");
     setc("published",a.published); setc("featured",a.featured);
 
-    if(details) setTimeout(function(){details.scrollIntoView({behavior:"smooth",block:"start"});},60);
+    if(details){
+      setTimeout(function(){details.scrollIntoView({behavior:"smooth",block:"start"});},80);
+    }
   }catch(e){
     alert("記事編集の読み込みに失敗しました: "+(e&&e.message?e.message:"不明なエラー"));
   }
