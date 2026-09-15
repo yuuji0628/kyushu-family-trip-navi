@@ -554,25 +554,54 @@ function buildFamilyHotelArticle(hotel) {
   const checked = todayJst();
 
   const imageCandidates = [
-    hotel.hotelImageUrl,
-    hotel.hotelThumbnailUrl,
-    hotel.roomImageUrl,
-    hotel.roomThumbnailUrl,
-    hotel.planImageUrl,
-    hotel.planThumbnailUrl
-  ].filter(Boolean);
-  const uniqueImages = [...new Set(imageCandidates)].slice(0, 6);
-  const articleImg = i => uniqueImages[i] || uniqueImages[0] || "";
+    { url: hotel.hotelImageUrl || "", type:"hotel" },
+    { url: hotel.hotelThumbnailUrl || "", type:"hotel" },
+    { url: hotel.roomImageUrl || "", type:"room" },
+    { url: hotel.roomThumbnailUrl || "", type:"room" },
+    { url: hotel.planImageUrl || "", type:"plan" },
+    { url: hotel.planThumbnailUrl || "", type:"plan" }
+  ].filter(x => x.url);
+
+  // Same URL is never shown twice. Preserve the most specific type when duplicates exist.
+  const imageMap = new Map();
+  const typePriority = { room:3, plan:2, hotel:1 };
+  for (const item of imageCandidates) {
+    const prev = imageMap.get(item.url);
+    if (!prev || typePriority[item.type] > typePriority[prev.type]) {
+      imageMap.set(item.url, item);
+    }
+  }
+  const uniqueImages = [...imageMap.values()].slice(0, 6);
+
+  const firstByType = type => uniqueImages.find(x => x.type === type)?.url || "";
+  const unusedImage = used => uniqueImages.find(x => !used.has(x.url))?.url || "";
+
   const hasPool = /プール|アクア|ウォーター|スライダー|水着/.test(special);
   const hasOnsen = /温泉|露天|大浴場|湯|スパ/.test(special);
   const hasKids = /キッズ|子供|子ども|ファミリー|ベビー/.test(special);
 
+  const usedArticleImages = new Set();
+  const takeImage = preferredType => {
+    let url = preferredType ? firstByType(preferredType) : "";
+    if (url && usedArticleImages.has(url)) url = "";
+    if (!url) url = unusedImage(usedArticleImages);
+    if (url) usedArticleImages.add(url);
+    return url;
+  };
+
+  // We only label an image "客室" when Rakuten returned a room image.
+  // Generic hotel/plan images are described generically to avoid misleading captions.
+  const heroImage = takeImage("hotel");
+  const roomImage = firstByType("room") && !usedArticleImages.has(firstByType("room"))
+    ? (usedArticleImages.add(firstByType("room")), firstByType("room"))
+    : "";
+  const facilityImage = takeImage("");
+  const extraImage = takeImage("");
+
   const photoBlock = (url, alt, caption) => url
     ? `![${alt}](${url})\n\n*${caption}*\n\n`
     : "";
-
-
-  const localHints = {
+const localHints = {
     "福岡県":["市街地観光と組み合わせやすい","食事の選択肢を広げやすい","公共交通中心でも旅程を作りやすい"],
     "佐賀県":["温泉やドライブ旅と相性がいい","移動を詰め込みすぎない旅程が合いやすい","車移動の家族旅行に向きやすい"],
     "長崎県":["観光地ごとの移動時間を見込んでおきたい","坂道や移動量を考えてホテル時間を確保したい","市街地観光と宿泊の動線が重要"],
@@ -606,7 +635,7 @@ ${opening}
 
 ${verdict}
 
-${photoBlock(articleImg(0), `${name}の施設写真`, `${name}の施設イメージ。最新の客室・設備は予約ページで確認してください。`)}> POINT: このホテルを見るときの軸は「${localHint}」こと。料金だけではなく、移動とホテル滞在をセットで考えると選びやすくなります。
+${photoBlock(heroImage, `${name}の施設写真`, `${name}の施設イメージ。最新の客室・設備は予約ページで確認してください。`)}> POINT: このホテルを見るときの軸は「${localHint}」こと。料金だけではなく、移動とホテル滞在をセットで考えると選びやすくなります。
 
 ### 今わかっている基本情報
 
@@ -621,19 +650,19 @@ ${special ? `楽天トラベルの施設紹介には「${special}」とありま
 
 ## 客室・内装を写真でチェック
 
-${photoBlock(articleImg(1), `${name}の客室・内装`, `客室・内装のイメージ。部屋タイプによって広さや設備は異なります。`)}
+${roomImage ? photoBlock(roomImage, `${name}の客室・内装`, `楽天トラベルから取得した客室写真です。部屋タイプによって広さや設備は異なります。`) : `*客室専用の写真を取得できなかったため、誤解を避けて画像は掲載していません。予約ページで客室タイプごとの写真をご確認ください。*\n\n`}
 子連れでは、客室の豪華さよりも「荷物を広げても動きやすいか」「寝かしつけしやすいか」「誰がどこで寝るか」を想像して選ぶのが大切です。
 
 > CHECK: 客室写真だけで決めず、定員・寝具・禁煙喫煙・バス・トイレ・添い寝条件まで確認してください。
 
-## 館内施設・温泉・プール
+## 館内施設・温泉・プールを確認
 
-${photoBlock(articleImg(2), `${name}の館内施設`, `館内施設のイメージ。営業日や利用条件は予約前に確認してください。`)}
-${hasPool ? `施設紹介からプール・水遊び系の設備が確認できるホテルです。子どもが楽しみにしやすいポイントなので、営業期間・対象年齢・水遊び用パンツ・浮き輪などの条件を予約前に確認しておくと安心です。` : ""}
+${photoBlock(facilityImage, `${name}の施設イメージ`, `楽天トラベルから取得した施設写真です。写真の内容と利用条件は予約ページで最新情報をご確認ください。`)}
+${hasPool ? `施設紹介からプール・水遊び系の設備が確認できるホテルです。子どもが楽しみにしやすいポイントなので、営業期間・対象年齢・水遊び用パンツ・浮き輪などの条件を予約前に確認しておくと安心です。なお、楽天APIからプール専用写真を判別できない場合は、誤った写真を載せないため施設写真のみ掲載します。` : ""}
 ${hasOnsen ? `温泉・大浴場系の設備があるホテルなら、観光を詰め込みすぎず「ホテルでゆっくりする時間」を旅程に入れると満足度が上がりやすいです。` : ""}
 ${hasKids ? `キッズ・ファミリー向け設備が案内されている場合は、対象年齢と利用時間を確認しておくと、子どもの昼寝や夕食時間と合わせやすくなります。` : ""}
 
-${photoBlock(articleImg(3), `${name}での滞在イメージ`, `ホテルで過ごす時間をイメージしやすい写真です。`)}
+${photoBlock(extraImage, `${name}の施設・宿泊イメージ`, `楽天トラベルから取得した別の施設写真です。`)}
 
 ## 編集部ならここから見る
 
@@ -1847,7 +1876,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.2 / BUILD FIX</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.3 / PHOTO QUALITY</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -1921,7 +1950,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.2</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.3</div>
       </form>
     </section>
 
@@ -2006,7 +2035,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.2 / SERVER RENDER</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.3 / SERVER RENDER</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       <div id="articleList">${adminArticlesHtml}</div>
