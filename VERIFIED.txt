@@ -1,7 +1,23 @@
 事前検証済み
+- Worker syntax: OK
+- Photo-driven sections: OK
+- Room family section: OK
+- Meal family section: OK
+- Pool family section: OK
+- Bath family section: OK
+- Facility family section: OK
+- Broader image collection: OK
+- Photo count: OK
+- Reader clean retained: OK
+- Family magazine retained: OK
+- Room classification retained: OK
+- Native search retained: OK
+- Native login retained: OK
+- Native create retained: OK
+- Native delete retained: OK
+- GitHub retained: OK
+- D1 retained: OK
+- Cron retained: OK
 - node --check: OK
-- 既存記事の表示時クリーニング: OK
-- 新規記事の内部表現削除: OK
-- Family Magazineデザイン: 維持
-- 写真ギャラリー/誤分類対策: 維持
-- Native操作/D1/Cron/GitHub: 維持
+
+※ 本番楽天APIが実際に返す画像枚数はCloudflare Secretsが必要なためローカルではライブ取得していません。
