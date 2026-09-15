@@ -1,24 +1,16 @@
 事前検証済み
-- Worker syntax: OK
-- meal overrides room: OK
-- room classification is last: OK
-- explicit room URL not blindly trusted: OK
-- strict verified room images: OK
-- meal excluded from room: OK
-- pool excluded from room: OK
-- bath excluded from room: OK
-- ambiguous gallery retained: OK
-- all remaining photos retained: OK
-- full gallery retained: OK
-- variation retained: OK
-- family design retained: OK
-- native hotel search retained: OK
-- native login retained: OK
-- native create retained: OK
-- native delete retained: OK
+- Long editorial disclosure removed: OK
+- Long ad disclosure removed: OK
+- Top PR retained: OK
+- Editorial-policy link retained: OK
+- Family article design retained: OK
+- Photo classification fix retained: OK
+- Full photo gallery retained: OK
+- Native hotel search retained: OK
+- Native login retained: OK
+- Native create retained: OK
+- Native delete retained: OK
 - GitHub retained: OK
 - D1 retained: OK
 - Cron retained: OK
 - node --check: OK
-
-※ 実画像の視覚内容をAI画像認識しているわけではないため、URL/レスポンス情報で安全に分類できないものは『楽天掲載写真』へ回します。
