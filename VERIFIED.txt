@@ -1,16 +1,19 @@
 事前検証済み
 
-- 一般ホテル記事生成API: OK
-- 全ホテル用ボタン: OK
-- 選択ホテルを送信: OK
-- 楽天URL保存: OK
-- 画像自動取得: OK
-- 楽天検索維持: OK
-- 秘密変数維持: OK
-- D1維持: OK
-- 管理認証維持: OK
-- 構文チェック: OK
-- 汎用記事テンプレート文字量（変数展開前概算）: 4000文字
+- scheduled handler: OK
+- auto endpoint: OK
+- Kyushu 7 prefectures: OK
+- family keywords: OK
+- area api: OK
+- keyword api: OK
+- detail api: OK
+- duplicate prevention: OK
+- affiliate: OK
+- log table: OK
+- manual admin button: OK
+- D1 preserved: OK
+- auth preserved: OK
 - node --check: OK
 
-Cloudflareの変数・シークレット・D1バインディングを変更する処理は追加していません。
+重要: Cron TriggerそのものはCloudflare側で1回だけ追加が必要です。
+worker.jsから既存のCloudflareシークレット・変数・D1設定を削除/変更する処理はありません。

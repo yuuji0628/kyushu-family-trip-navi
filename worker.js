@@ -523,6 +523,343 @@ ${name}は、${address ? `${address}にある` : ""}家族旅行の宿泊先候�
   };
 }
 
+
+const KYUSHU_PREFECTURES = [
+  { name: "福岡県", area: "fukuoka" },
+  { name: "佐賀県", area: "saga" },
+  { name: "長崎県", area: "nagasaki" },
+  { name: "熊本県", area: "kumamoto" },
+  { name: "大分県", area: "oita" },
+  { name: "宮崎県", area: "miyazaki" },
+  { name: "鹿児島県", area: "kagoshima" }
+];
+
+const FAMILY_SEARCH_KEYWORDS = ["ファミリー", "子連れ", "家族旅行", "赤ちゃん"];
+
+function sleepMs(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function safeText(v) {
+  return String(v == null ? "" : v);
+}
+
+function findMiddleClassCode(node, targetName) {
+  if (!node || typeof node !== "object") return "";
+  if (
+    typeof node.middleClassCode === "string" &&
+    safeText(node.middleClassName).includes(targetName.replace("県", ""))
+  ) {
+    return node.middleClassCode;
+  }
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findMiddleClassCode(child, targetName);
+      if (found) return found;
+    }
+    return "";
+  }
+  for (const value of Object.values(node)) {
+    const found = findMiddleClassCode(value, targetName);
+    if (found) return found;
+  }
+  return "";
+}
+
+async function rakutenServerFetch(url, env) {
+  let last = { ok:false, status:0, data:{}, text:"" };
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const headers = new Headers({
+      "accept": "application/json",
+      "referer": "https://kyushu-family-trip-navi-worker.rrwpvwmz8p.workers.dev/admin.html",
+      "origin": "https://kyushu-family-trip-navi-worker.rrwpvwmz8p.workers.dev"
+    });
+
+    const r = await fetch(new Request(url, { method:"GET", headers, redirect:"follow" }));
+    const text = await r.text();
+    let data = {};
+    try { data = JSON.parse(text); } catch {}
+
+    last = { ok:r.ok, status:r.status, data, text };
+
+    const msg = safeText(data?.error_description || data?.message || data?.error || text);
+    const limited = r.status === 429 || /rate\s*limit|too many requests|try again in/i.test(msg);
+    if (r.ok) return last;
+
+    if (limited && attempt < 2) {
+      await sleepMs(1500 * (attempt + 1));
+      continue;
+    }
+    return last;
+  }
+  return last;
+}
+
+function normalizeHotelCandidates(data) {
+  const rows = normalizeRakutenHotels(data);
+  return rows.map(h => ({
+    ...h,
+    reviewAverage: Number(h.reviewAverage || 0),
+    reviewCount: Number(h.reviewCount || 0),
+    hotelMinCharge: Number(h.hotelMinCharge || 0)
+  }));
+}
+
+function candidateScore(h) {
+  const rating = Number(h.reviewAverage || 0);
+  const reviews = Number(h.reviewCount || 0);
+  const price = Number(h.hotelMinCharge || 0);
+  let score = 0;
+  if (rating) score += rating * 25;
+  score += Math.min(35, Math.log10(reviews + 1) * 14);
+  if (reviews >= 100) score += 8;
+  if (reviews >= 500) score += 6;
+  if (rating >= 4.3) score += 12;
+  if (rating >= 4.5) score += 8;
+  if (price > 0 && price <= 30000) score += 5;
+  return score;
+}
+
+async function ensureAutoHotelLogTable(db) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS auto_hotel_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    runAt TEXT NOT NULL,
+    status TEXT NOT NULL,
+    prefecture TEXT,
+    keyword TEXT,
+    hotelNo TEXT,
+    hotelName TEXT,
+    articleId TEXT,
+    message TEXT
+  )`).run();
+}
+
+async function writeAutoHotelLog(db, row) {
+  await ensureAutoHotelLogTable(db);
+  await db.prepare(`INSERT INTO auto_hotel_runs
+    (runAt,status,prefecture,keyword,hotelNo,hotelName,articleId,message)
+    VALUES (?,?,?,?,?,?,?,?)`).bind(
+      new Date().toISOString(),
+      row.status || "",
+      row.prefecture || "",
+      row.keyword || "",
+      row.hotelNo || "",
+      row.hotelName || "",
+      row.articleId || "",
+      row.message || ""
+    ).run();
+}
+
+async function lastAutoHotelLog(db) {
+  await ensureAutoHotelLogTable(db);
+  return await db.prepare(`SELECT * FROM auto_hotel_runs ORDER BY id DESC LIMIT 1`).first();
+}
+
+async function autoCreateKyushuHotelArticle(env, options = {}) {
+  if (!env.DB) throw new Error("D1 binding DB is not configured");
+  if (!env.RAKUTEN_APPLICATION_ID || !env.RAKUTEN_ACCESS_KEY) {
+    throw new Error("Rakuten API secrets are not configured");
+  }
+
+  const now = new Date();
+  const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const daySeed = Math.floor(jstDate.getTime() / 86400000);
+
+  const pref = options.prefecture
+    ? KYUSHU_PREFECTURES.find(x => x.name === options.prefecture || x.area === options.prefecture)
+    : KYUSHU_PREFECTURES[daySeed % KYUSHU_PREFECTURES.length];
+
+  if (!pref) throw new Error("Unknown prefecture");
+
+  // 1) 楽天の地区コードを取得。コードをハードコードしないので仕様変更に強い。
+  const areaParams = new URLSearchParams({
+    applicationId: env.RAKUTEN_APPLICATION_ID,
+    accessKey: env.RAKUTEN_ACCESS_KEY,
+    format: "json",
+    formatVersion: "2"
+  });
+  const areaRes = await rakutenServerFetch(
+    "https://openapi.rakuten.co.jp/engine/api/Travel/GetAreaClass/20140210?" + areaParams.toString(),
+    env
+  );
+  if (!areaRes.ok) {
+    await writeAutoHotelLog(env.DB, {
+      status:"error", prefecture:pref.name,
+      message:"GetAreaClass failed: HTTP " + areaRes.status
+    });
+    throw new Error("GetAreaClass failed: HTTP " + areaRes.status);
+  }
+
+  const middleClassCode = findMiddleClassCode(areaRes.data, pref.name);
+  if (!middleClassCode) {
+    await writeAutoHotelLog(env.DB, {
+      status:"error", prefecture:pref.name,
+      message:"middleClassCode not found"
+    });
+    throw new Error("middleClassCode not found for " + pref.name);
+  }
+
+  let candidates = [];
+  let usedKeyword = "";
+
+  // 2) ファミリー系キーワードを順番に試す。API連打を避けて各検索間隔を空ける。
+  const keywordStart = daySeed % FAMILY_SEARCH_KEYWORDS.length;
+  for (let i = 0; i < FAMILY_SEARCH_KEYWORDS.length; i++) {
+    const keyword = FAMILY_SEARCH_KEYWORDS[(keywordStart + i) % FAMILY_SEARCH_KEYWORDS.length];
+    const params = new URLSearchParams({
+      applicationId: env.RAKUTEN_APPLICATION_ID,
+      accessKey: env.RAKUTEN_ACCESS_KEY,
+      format: "json",
+      formatVersion: "2",
+      keyword,
+      middleClassCode,
+      searchField: "0",
+      hits: "30",
+      responseType: "middle",
+      hotelThumbnailSize: "3"
+    });
+    if (env.RAKUTEN_AFFILIATE_ID) params.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
+
+    if (i > 0) await sleepMs(1400);
+
+    const searchRes = await rakutenServerFetch(
+      "https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20260731?" + params.toString(),
+      env
+    );
+
+    if (!searchRes.ok) continue;
+
+    const rows = normalizeHotelCandidates(searchRes.data);
+    if (rows.length) {
+      candidates = rows;
+      usedKeyword = keyword;
+      break;
+    }
+  }
+
+  if (!candidates.length) {
+    await writeAutoHotelLog(env.DB, {
+      status:"skip", prefecture:pref.name,
+      message:"No family hotel candidates found"
+    });
+    return { ok:false, skipped:true, reason:"候補ホテルが見つかりませんでした", prefecture:pref.name };
+  }
+
+  // 3) 評価・口コミを加味し、既に記事化したホテルを除外。
+  candidates.sort((a,b) => candidateScore(b) - candidateScore(a));
+
+  let selected = null;
+  for (const h of candidates) {
+    if (!h.hotelNo) continue;
+    const articleId = "hotel-" + h.hotelNo;
+    const exists = await env.DB.prepare("SELECT id FROM articles WHERE id = ? LIMIT 1").bind(articleId).first();
+    if (exists) continue;
+    selected = h;
+    break;
+  }
+
+  if (!selected) {
+    await writeAutoHotelLog(env.DB, {
+      status:"skip", prefecture:pref.name, keyword:usedKeyword,
+      message:"All candidates already published"
+    });
+    return { ok:false, skipped:true, reason:"候補はすべて記事化済みです", prefecture:pref.name };
+  }
+
+  // 4) 詳細情報を追加取得。
+  await sleepMs(1400);
+  const detailParams = new URLSearchParams({
+    applicationId: env.RAKUTEN_APPLICATION_ID,
+    accessKey: env.RAKUTEN_ACCESS_KEY,
+    format: "json",
+    formatVersion: "2",
+    hotelNo: String(selected.hotelNo),
+    responseType: "large",
+    hotelThumbnailSize: "3"
+  });
+  if (env.RAKUTEN_AFFILIATE_ID) detailParams.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
+
+  const detailRes = await rakutenServerFetch(
+    "https://openapi.rakuten.co.jp/engine/api/Travel/HotelDetailSearch/20260731?" + detailParams.toString(),
+    env
+  );
+
+  if (detailRes.ok) {
+    const detailed = normalizeHotelCandidates(detailRes.data)[0];
+    if (detailed) selected = { ...selected, ...detailed };
+  }
+
+  const article = buildFamilyHotelArticle(selected);
+  const rakutenUrl = safeText(selected.hotelInformationUrl || selected.planListUrl);
+  if (!rakutenUrl) {
+    await writeAutoHotelLog(env.DB, {
+      status:"error", prefecture:pref.name, keyword:usedKeyword,
+      hotelNo:String(selected.hotelNo), hotelName:selected.hotelName,
+      message:"Affiliate/hotel URL missing"
+    });
+    throw new Error("Rakuten hotel URL missing");
+  }
+
+  const coverImage = safeText(selected.hotelImageUrl || selected.hotelThumbnailUrl);
+
+  await env.DB.prepare(`INSERT OR REPLACE INTO articles (
+    id,title,area,category,icon,coverImage,coverAlt,excerpt,content,tags,ageGroups,practical,
+    affiliateRakuten,affiliateJalan,affiliateYahoo,seoMetaDescription,seoKeywords,published,featured,date,updatedAt
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+    article.id, article.title, article.area, article.category, article.icon,
+    coverImage, selected.hotelName || article.title,
+    article.excerpt, article.content,
+    JSON.stringify(article.tags), JSON.stringify(article.ageGroups), JSON.stringify(article.practical),
+    rakutenUrl, "", "",
+    article.seoMetaDescription, article.seoKeywords,
+    1, 0, todayJst(), todayJst()
+  ).run();
+
+  await writeAutoHotelLog(env.DB, {
+    status:"success",
+    prefecture:pref.name,
+    keyword:usedKeyword,
+    hotelNo:String(selected.hotelNo || ""),
+    hotelName:selected.hotelName || "",
+    articleId:article.id,
+    message:"自動記事作成完了"
+  });
+
+  return {
+    ok:true,
+    prefecture:pref.name,
+    keyword:usedKeyword,
+    hotelNo:selected.hotelNo,
+    hotelName:selected.hotelName,
+    reviewAverage:selected.reviewAverage || null,
+    reviewCount:selected.reviewCount || null,
+    articleId:article.id,
+    url:"/article.html?id=" + encodeURIComponent(article.id),
+    affiliateEnabled:!!env.RAKUTEN_AFFILIATE_ID
+  };
+}
+
+async function handleAutoHotelApi(request, env) {
+  if (!requireAuth(request, env)) return unauthorized();
+
+  if (request.method === "GET") {
+    const last = await lastAutoHotelLog(env.DB);
+    return json({ ok:true, last });
+  }
+
+  if (request.method === "POST") {
+    try {
+      const result = await autoCreateKyushuHotelArticle(env);
+      return json(result);
+    } catch (e) {
+      return json({ ok:false, error:String(e?.message || e) }, { status:500 });
+    }
+  }
+
+  return json({ error:"Method not allowed" }, { status:405 });
+}
+
 async function createGenericHotelArticle(request, env) {
   if (!env.DB) return json({ error: "D1 binding DB is not configured" }, { status: 500 });
   if (!requireAuth(request, env)) return unauthorized();
@@ -839,6 +1176,12 @@ function adminPage() {
       </div>
       <div class="field"><label>実用情報（カンマ区切り）</label><input id="practical" class="input"></div>
       <h3>アフィリエイト</h3>
+      <div class="panel" style="margin:12px 0;background:#f7fbff">
+        <h3 style="margin-top:0">🤖 九州ホテル完全自動化</h3>
+        <p class="small">九州7県を順番に巡回し、楽天トラベルからファミリー向け候補を検索。評価・口コミを加味して未掲載ホテルを選び、楽天アフィリエイトURL付きの記事を自動公開します。</p>
+        <button id="autoHotelRunBtn" class="btn" type="button">今すぐ1記事を自動作成</button>
+        <div id="autoHotelStatus" class="small" style="margin-top:10px">状態を確認中...</div>
+      </div>
       <div class="panel" style="margin:12px 0;background:#fbfffd">
         <h3 style="margin-top:0">🟥 楽天ホテル検索</h3>
         <p class="small">ホテル名を入力 → 楽天トラベルAPIで検索 → 候補を選ぶとアフィリエイトURLを自動入力します。さらに、そのホテルの記事を自動作成できます。</p>
@@ -982,6 +1325,51 @@ function adminPage() {
     });
   };
 
+
+  async function refreshAutoHotelStatus(){
+    try{
+      var r=await fetch("/api/auto-hotel",{headers:headers()});
+      var d=await r.json();
+      if(!r.ok){$("autoHotelStatus").textContent="状態取得失敗";return;}
+      if(!d.last){
+        $("autoHotelStatus").textContent="まだ自動実行履歴はありません。";
+        return;
+      }
+      var x=d.last;
+      $("autoHotelStatus").textContent=
+        "最終実行: "+(x.runAt||"")+" / "+(x.status||"")+
+        (x.prefecture?(" / "+x.prefecture):"")+
+        (x.hotelName?(" / "+x.hotelName):"")+
+        (x.message?(" / "+x.message):"");
+    }catch(e){
+      $("autoHotelStatus").textContent="状態取得に失敗しました。";
+    }
+  }
+
+  $("autoHotelRunBtn").onclick=async function(){
+    $("autoHotelRunBtn").disabled=true;
+    $("autoHotelStatus").textContent="九州のおすすめホテルを検索して記事を作成中...";
+    try{
+      var r=await fetch("/api/auto-hotel",{method:"POST",headers:headers()});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok){
+        $("autoHotelStatus").textContent="自動作成失敗: "+(d.error||("HTTP "+r.status));
+      }else if(d.skipped){
+        $("autoHotelStatus").textContent="今回はスキップ: "+(d.reason||"候補なし");
+      }else{
+        $("autoHotelStatus").innerHTML=
+          "自動作成完了 ✅ "+escapeHtmlClient(d.hotelName||"")+
+          ' <a href="'+d.url+'" target="_blank">記事を見る</a>';
+        loadArticles();
+      }
+    }catch(e){
+      $("autoHotelStatus").textContent="自動作成に失敗しました。";
+    }
+    $("autoHotelRunBtn").disabled=false;
+  };
+
+  refreshAutoHotelStatus();
+
   $("hotelArticleBtn").onclick=async function(){
     var h=window.__selectedRakutenHotel||{};
     var rakutenUrl=$("rakuten").value.trim();
@@ -1043,6 +1431,23 @@ function robotsPage(url) {
 }
 
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil((async () => {
+      try {
+        await autoCreateKyushuHotelArticle(env);
+      } catch (e) {
+        if (env.DB) {
+          try {
+            await writeAutoHotelLog(env.DB, {
+              status:"error",
+              message:"Scheduled run failed: " + String(e?.message || e)
+            });
+          } catch {}
+        }
+      }
+    })());
+  },
+
   async fetch(request, env) {
     try {
       const url = new URL(request.url);
@@ -1050,6 +1455,7 @@ export default {
       if (url.pathname === "/api/rakuten-hotels") return await handleRakutenHotelSearch(request, env);
       if (url.pathname === "/api/suginoi-article") return await createSuginoiArticle(request, env);
       if (url.pathname === "/api/hotel-article") return await createGenericHotelArticle(request, env);
+      if (url.pathname === "/api/auto-hotel") return await handleAutoHotelApi(request, env);
       if (url.pathname === "/api/premium-articles") return await upgradePremiumArticles(request, env);
       if (url.pathname === "/__diag") {
         if (!env.DB) return json({ ok: false, error: "D1 binding DB is not configured" }, { status: 500 });
