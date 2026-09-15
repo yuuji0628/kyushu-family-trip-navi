@@ -1,12 +1,13 @@
 事前検証済み
-- quality panel removed: OK
-- image fields: OK
-- photo markdown: OK
-- pool detection: OK
-- onsen detection: OK
-- GitHub ZIP retained: OK
-- article list retained: OK
-- Cron retained: OK
-- Rakuten retained: OK
-- D1 retained: OK
-- node --check: OK
+- direct edit: OK
+- direct delete: OK
+- delete button: OK
+- DELETE API retained: OK
+- version marker: OK
+- photo articles: OK
+- GitHub: OK
+- Cron: OK
+- Rakuten: OK
+- D1: OK
+- Worker syntax: OK
+- Admin inline scripts syntax: OK
