@@ -1406,8 +1406,9 @@ function adminPage() {
     <h2>管理画面ログイン</h2>
     <p>Cloudflare Workers の ADMIN_PASSWORD を入力してください。</p>
     <div class="field"><input id="pw" class="input" type="password" placeholder="管理パスワード"></div>
-    <button id="loginBtn" class="btn">ログイン</button>
+    <button id="loginBtn" class="btn" type="button" onclick="adminLoginDirect()">ログイン</button>
     <div id="loginStatus" class="small"></div>
+    <div class="small" style="margin-top:10px;opacity:.65">admin v7.2.2</div>
   </div>
   <main id="adminApp" class="admin" style="display:none">
     <section class="adminHero">
@@ -1570,6 +1571,43 @@ function adminPage() {
     </section>
   </main>
 <script>
+async function adminLoginDirect(){
+  var btn=document.getElementById("loginBtn");
+  var status=document.getElementById("loginStatus");
+  var input=document.getElementById("pw");
+  var loginBox=document.getElementById("loginBox");
+  var adminApp=document.getElementById("adminApp");
+  if(!btn||!status||!input||!loginBox||!adminApp) return;
+  var pw=input.value||"";
+  status.textContent="確認中...";
+  btn.disabled=true;
+  try{
+    var r=await fetch("/api/articles?auth=1",{cache:"no-store",headers:{"x-admin-password":pw}});
+    if(r.ok){
+      sessionStorage.setItem("adminPassword",pw);
+      loginBox.style.display="none";
+      adminApp.style.display="block";
+      status.textContent="ログイン成功";
+      window.dispatchEvent(new CustomEvent("admin-direct-login",{detail:{password:pw}}));
+    }else{
+      status.textContent="パスワードが違います。（HTTP "+r.status+"）";
+    }
+  }catch(e){
+    status.textContent="通信エラー: "+(e&&e.message?e.message:"接続できませんでした");
+  }finally{
+    btn.disabled=false;
+  }
+}
+document.addEventListener("DOMContentLoaded",function(){
+  var input=document.getElementById("pw");
+  if(input){
+    input.addEventListener("keydown",function(e){
+      if(e.key==="Enter"){ e.preventDefault(); adminLoginDirect(); }
+    });
+  }
+});
+</script>
+<script>
 (function(){
   var password = sessionStorage.getItem("adminPassword") || "";
   var $ = function(id){ return document.getElementById(id); };
@@ -1579,30 +1617,28 @@ function adminPage() {
     return r.ok;
   }
   async function boot(){
-    if(password && await auth(password)){ $("loginBox").style.display="none"; $("adminApp").style.display="block"; loadArticles(); loadDashboard(); checkGithubConnection(); }
-  }
-  $("loginBtn").onclick = async function(){
-    var pw = $("pw").value;
-    $("loginStatus").textContent = "確認中...";
-    $("loginBtn").disabled = true;
+    if(!password) return;
     try{
-      if(await auth(pw)){
-        password=pw;
-        sessionStorage.setItem("adminPassword",pw);
+      if(await auth(password)){
         $("loginBox").style.display="none";
         $("adminApp").style.display="block";
         loadArticles();
         loadDashboard();
         checkGithubConnection();
       }else{
-        $("loginStatus").textContent = "パスワードが違います。";
+        sessionStorage.removeItem("adminPassword");
+        password="";
       }
     }catch(e){
-      $("loginStatus").textContent = "接続確認に失敗しました。ページを再読み込みしてもう一度お試しください。";
-    }finally{
-      $("loginBtn").disabled = false;
+      $("loginStatus").textContent="自動ログイン確認に失敗しました。手動でログインしてください。";
     }
-  };
+  }
+  window.addEventListener("admin-direct-login",function(e){
+    password=(e.detail&&e.detail.password)||sessionStorage.getItem("adminPassword")||"";
+    loadArticles();
+    loadDashboard();
+    checkGithubConnection();
+  });
   $("logoutBtn").onclick = function(){ sessionStorage.removeItem("adminPassword"); location.reload(); };
   function csv(v){ return v.split(",").map(function(x){return x.trim();}).filter(Boolean); }
 
@@ -2045,7 +2081,7 @@ function adminPage() {
     loadDashboard();
   };
 
-  refreshAutoHotelStatus();
+  // refreshAutoHotelStatus is called after login through the dashboard flow.
 
   $("hotelArticleBtn").onclick=async function(){
     var h=window.__selectedRakutenHotel||{};
