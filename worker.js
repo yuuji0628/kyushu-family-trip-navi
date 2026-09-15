@@ -1569,7 +1569,6 @@ function adminPage() {
       <div id="articleList">読み込み中...</div>
     </section>
   </main>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
 (function(){
   var password = sessionStorage.getItem("adminPassword") || "";
@@ -1580,13 +1579,29 @@ function adminPage() {
     return r.ok;
   }
   async function boot(){
-    if(password && await auth(password)){ $("loginBox").style.display="none"; $("adminApp").style.display="block"; loadArticles(); loadDashboard(); }
+    if(password && await auth(password)){ $("loginBox").style.display="none"; $("adminApp").style.display="block"; loadArticles(); loadDashboard(); checkGithubConnection(); }
   }
   $("loginBtn").onclick = async function(){
     var pw = $("pw").value;
     $("loginStatus").textContent = "確認中...";
-    if(await auth(pw)){ password=pw; sessionStorage.setItem("adminPassword",pw); $("loginBox").style.display="none"; $("adminApp").style.display="block"; loadArticles(); loadDashboard(); }
-    else $("loginStatus").textContent = "パスワードが違います。";
+    $("loginBtn").disabled = true;
+    try{
+      if(await auth(pw)){
+        password=pw;
+        sessionStorage.setItem("adminPassword",pw);
+        $("loginBox").style.display="none";
+        $("adminApp").style.display="block";
+        loadArticles();
+        loadDashboard();
+        checkGithubConnection();
+      }else{
+        $("loginStatus").textContent = "パスワードが違います。";
+      }
+    }catch(e){
+      $("loginStatus").textContent = "接続確認に失敗しました。ページを再読み込みしてもう一度お試しください。";
+    }finally{
+      $("loginBtn").disabled = false;
+    }
   };
   $("logoutBtn").onclick = function(){ sessionStorage.removeItem("adminPassword"); location.reload(); };
   function csv(v){ return v.split(",").map(function(x){return x.trim();}).filter(Boolean); }
@@ -1633,30 +1648,93 @@ function adminPage() {
     return btoa(binary);
   }
 
+  async function inflateRaw(bytes){
+    if(typeof DecompressionStream==="undefined"){
+      throw new Error("このブラウザではZIP展開機能を利用できません。iOS/Safariを最新版にしてください。");
+    }
+    var ds=new DecompressionStream("deflate-raw");
+    var stream=new Blob([bytes]).stream().pipeThrough(ds);
+    var buf=await new Response(stream).arrayBuffer();
+    return new Uint8Array(buf);
+  }
+
+  async function parseZipFile(file){
+    var buf=await file.arrayBuffer();
+    var view=new DataView(buf);
+    var bytes=new Uint8Array(buf);
+    var decoder=new TextDecoder("utf-8");
+    var pos=0, entries=[];
+
+    while(pos+30<=view.byteLength){
+      var sig=view.getUint32(pos,true);
+      if(sig===0x04034b50){
+        var flags=view.getUint16(pos+6,true);
+        var method=view.getUint16(pos+8,true);
+        var compSize=view.getUint32(pos+18,true);
+        var uncompSize=view.getUint32(pos+22,true);
+        var nameLen=view.getUint16(pos+26,true);
+        var extraLen=view.getUint16(pos+28,true);
+
+        if(flags & 0x08){
+          throw new Error("このZIP形式は未対応です。ChatGPTから受け取ったZIPをそのまま使用してください。");
+        }
+
+        var nameStart=pos+30;
+        var dataStart=nameStart+nameLen+extraLen;
+        if(dataStart+compSize>view.byteLength) throw new Error("ZIPデータが壊れています。");
+
+        var name=decoder.decode(bytes.slice(nameStart,nameStart+nameLen));
+        var compressed=bytes.slice(dataStart,dataStart+compSize);
+        var output;
+
+        if(method===0){
+          output=compressed;
+        }else if(method===8){
+          output=await inflateRaw(compressed);
+        }else{
+          throw new Error("未対応のZIP圧縮方式です: "+method);
+        }
+
+        if(uncompSize && output.length!==uncompSize){
+          throw new Error("ZIP展開サイズが一致しません: "+name);
+        }
+
+        if(!name.endsWith("/")){
+          entries.push({name:name,bytes:output});
+        }
+        pos=dataStart+compSize;
+        continue;
+      }
+
+      if(sig===0x02014b50 || sig===0x06054b50) break;
+      pos++;
+    }
+
+    if(!entries.length) throw new Error("ZIP内にファイルが見つかりません。");
+    return entries;
+  }
+
   $("githubZipInput").onchange=async function(){
     githubZipFiles=[];
     $("githubZipUploadBtn").disabled=true;
     $("githubProgressBar").style.width="0%";
     var file=this.files&&this.files[0];
     if(!file){$("githubZipPreview").textContent="ZIPを選択してください。";return;}
-    if(typeof JSZip==="undefined"){
-      $("githubZipPreview").textContent="ZIP機能を読み込めませんでした。";
-      return;
-    }
+
     $("githubZipPreview").textContent="ZIPを解析中...";
     try{
-      var zip=await JSZip.loadAsync(file);
-      var paths=Object.keys(zip.files).filter(function(k){
-        return !zip.files[k].dir && !k.includes("__MACOSX/") && !k.endsWith(".DS_Store");
+      var entries=await parseZipFile(file);
+      var paths=entries.map(function(e){return e.name;}).filter(function(k){
+        return !k.includes("__MACOSX/") && !k.endsWith(".DS_Store");
       });
       var root=commonTopFolder(paths);
-      githubZipFiles=paths.map(function(original){
-        return {
-          original:original,
-          path:root && original.startsWith(root)?original.slice(root.length):original,
-          entry:zip.files[original]
-        };
-      }).filter(function(x){return x.path && !x.path.startsWith(".git/");});
+
+      githubZipFiles=entries.map(function(entry){
+        var path=root && entry.name.startsWith(root)?entry.name.slice(root.length):entry.name;
+        return {original:entry.name,path:path,bytes:entry.bytes};
+      }).filter(function(x){
+        return x.path && !x.path.startsWith(".git/") && !x.path.includes("__MACOSX/") && !x.path.endsWith(".DS_Store");
+      });
 
       $("githubZipPreview").innerHTML="<b>"+escapeHtmlClient(file.name)+"</b> / "+githubZipFiles.length+"ファイル"+
         (root?" / 先頭フォルダ「"+escapeHtmlClient(root.slice(0,-1))+"」は自動で外します。":"");
@@ -1681,7 +1759,7 @@ function adminPage() {
       $("githubUploadStatus").textContent="反映中 "+(i+1)+"/"+githubZipFiles.length+"："+f.path;
       $("githubProgressBar").style.width=Math.round((i/githubZipFiles.length)*100)+"%";
       try{
-        var bytes=await f.entry.async("uint8array");
+        var bytes=f.bytes;
         var r=await fetch("/api/github-file",{
           method:"POST",
           headers:headers(),
@@ -1968,7 +2046,6 @@ function adminPage() {
   };
 
   refreshAutoHotelStatus();
-  checkGithubConnection();
 
   $("hotelArticleBtn").onclick=async function(){
     var h=window.__selectedRakutenHotel||{};
