@@ -1,24 +1,32 @@
-v8.1.0｜取得写真を起点に記事を書くファミリー版
+v8.2.0｜SEO MAX
 
-変更:
-- 取得できた写真の種類に合わせて記事項目を自動生成
-- 客室写真 → 家族で泊まる客室の記事
-- 食事写真 → 子どもと楽しむ食事の記事
-- プール写真 → 子連れ水遊びの記事
-- 温泉写真 → 子連れお風呂の記事
-- 館内写真 → 家族での館内の過ごし方の記事
-- 宿泊プラン・その他写真もホテルの雰囲気を伝える項目として活用
-- 写真がある項目ほど具体的に書き、写真がない項目を無理に膨らませない
-- 赤ちゃん / 幼児 / 小学生それぞれの見方を本文へ反映
-- 画像URL収集を拡張し、拡張子なしでも画像フィールドなら取得対象
-- 記事基本情報に掲載写真枚数を表示
-- 重複していた固定の写真セクションを整理
+追加したSEO対策:
+- 記事ごとのSEOタイトル自動最適化
+- meta description自動最適化
+- 子連れ / 赤ちゃん / プール / 温泉 / 朝食・食事 の検索意図を自動判定
+- 新規ホテル記事タイトル・description・keywordsにも検索意図を反映
+- 記事内FAQを自動生成
+- FAQPage構造化データ
+- Hotel構造化データ
+- Article / BreadcrumbList構造化データを強化
+- 写真をImageObjectとして構造化
+- max-image-preview:large
+- OGP / Twitter CardをSEOタイトル・画像に合わせて最適化
+- 「宮崎×プール」「大分×赤ちゃん」などの目的別SEOページを自動生成
+- 記事から目的別SEOページへ内部リンク
+- SEO目的別ページをsitemap.xmlへ自動追加
+- sitemapに更新頻度を追加
 
 維持:
-Family Magazine / Reader Clean / 写真誤分類対策 / 記事バリエーション /
-Nativeホテル検索 / Native Login / Native記事作成 / Native削除 /
-GitHub ZIP / D1 / Cron
+Family Magazine / PHOTO-DRIVEN FAMILY / Reader Clean /
+写真ギャラリー / 客室誤分類対策 / Nativeホテル検索 /
+Native Login / Native記事作成 / Native削除 / GitHub ZIP / D1 / Cron
+
+注意:
+FAQPage構造化データは入れていますが、GoogleのFAQリッチリザルトは現在、
+主に権威ある政府・医療サイトに限定されています。
+旅行サイトでFAQ表示が保証されるものではありません。
 
 GitHubでは worker.js を置き換えてください。
 反映後:
-dashboard v8.1.0 / PHOTO-DRIVEN FAMILY
+dashboard v8.2.0 / SEO MAX
