@@ -391,22 +391,57 @@ async function handleRakutenHotelSearch(request, env) {
   if (env.RAKUTEN_AFFILIATE_ID) params.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
 
   const apiUrl = "https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20260731?" + params.toString();
-  const r = await fetch(apiUrl, {
-    headers: { "accept": "application/json" }
-  });
 
-  const text = await r.text();
+  let r = null;
+  let text = "";
   let data = {};
-  try { data = JSON.parse(text); } catch {
-    return json({ error: "Rakuten API returned non-JSON response", status: r.status }, { status: 502 });
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    r = await fetch(apiUrl, { headers: { "accept": "application/json" } });
+    lastStatus = r.status;
+    text = await r.text();
+
+    try { data = JSON.parse(text); }
+    catch {
+      data = {};
+    }
+
+    const msg = String(
+      data?.error_description ||
+      data?.message ||
+      data?.error ||
+      text ||
+      ""
+    );
+
+    const isRateLimited =
+      r.status === 429 ||
+      /rate\s*limit|too many requests|try again in/i.test(msg);
+
+    if (r.ok) break;
+
+    if (isRateLimited && attempt < 2) {
+      await new Promise(resolve => setTimeout(resolve, 1300 * (attempt + 1)));
+      continue;
+    }
+    break;
   }
 
-  if (!r.ok) {
+  if (!r || !r.ok) {
+    const rawMessage = String(
+      data?.error_description ||
+      data?.message ||
+      data?.error ||
+      text ||
+      ""
+    ).slice(0, 300);
+
     return json({
       error: "Rakuten API error",
-      rakutenStatus: r.status,
+      rakutenStatus: lastStatus,
       rakutenError: data?.error || "",
-      rakutenMessage: data?.error_description || data?.message || ""
+      rakutenMessage: rawMessage || "Unknown upstream error"
     }, { status: 502 });
   }
 
@@ -624,8 +659,9 @@ function adminPage() {
     var r=await fetch("/api/rakuten-hotels?keyword="+encodeURIComponent(kw),{headers:headers()});
     var d=await r.json().catch(function(){return {};});
     if(!r.ok){
+      var upstream=d.rakutenStatus?(" / 楽天HTTP "+d.rakutenStatus):"";
       var detail=(d.rakutenError||d.rakutenMessage)?(" / "+(d.rakutenError||"")+(d.rakutenMessage?": "+d.rakutenMessage:"")):"";
-      $("rakutenSearchStatus").textContent="検索失敗: HTTP "+r.status+" "+(d.error||"")+detail;
+      $("rakutenSearchStatus").textContent="検索失敗: HTTP "+r.status+" "+(d.error||"")+upstream+detail;
       return;
     }
     $("rakutenSearchStatus").textContent=d.count+"件見つかりました。"+(d.affiliateEnabled?" アフィリエイトURL対応済み。":" ※Affiliate ID未設定のため通常URLです。");
