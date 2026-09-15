@@ -1,34 +1,16 @@
-v7.6.0｜管理画面をサーバー描画へ変更
+v7.6.1｜記事作成ボタンをJavaScript非依存に変更
 
-今回の根本対策:
-これまでダッシュボード・最近の自動作成・記事一覧を、
-ログイン後にJavaScriptで取得していました。
-そのため管理画面JavaScriptのどこか1か所で問題が起きると、
-「--」「確認中」「読み込み中」のまま止まっていました。
-
-v7.6.0ではCloudflare WorkerがD1を直接読み、
-HTMLを返す時点で次の情報を完成させます。
-
-- 公開記事数
-- 楽天リンク付き記事数
-- 自動作成成功数
-- 自動作成ステータス
-- 最近の自動作成履歴
-- 記事一覧
-
-初期表示はJavaScript非依存です。
-更新・再読み込みはページ全体を再読み込みして最新D1データを表示します。
+- 上部「今すぐ1記事作成」を通常フォーム送信へ変更
+- 下部「今すぐ1記事を自動作成」も通常フォーム送信へ変更
+- POST /admin-auto-create をWorker側で処理
+- Workerが autoCreateKyushuHotelArticle(env) を直接実行
+- 成功 / スキップ / エラーをサーバー描画で表示
+- 旧JavaScriptのボタンIDとは別IDにして干渉を防止
 
 維持:
-- Native Login
-- 今すぐ1記事作成
-- 記事編集 / 削除
-- 楽天ホテル検索
-- GitHub ZIP
-- 写真付き記事
-- D1 / 楽天API / GitHub / Cron
+Native Login / Server Render / 記事編集・削除 / 楽天ホテル検索 /
+GitHub ZIP / 写真付き記事 / D1 / 楽天API / GitHub / Cron
 
 反映後:
-dashboard v7.6.0 / SERVER RENDER
-article list v7.6.0 / SERVER RENDER
+dashboard v7.6.1 / NATIVE CREATE
 と表示されます。
