@@ -1,18 +1,17 @@
 事前検証済み
 - Worker syntax: OK
-- Inline scripts syntax: OK
-- Native delete route: OK
-- Native delete handler: OK
-- Native delete form: OK
-- Delete D1 SQL: OK
-- Native create retained: OK
+- Family hero design: OK
+- Family feature badges: OK
+- Server-rendered TOC: OK
+- Numbered article sections: OK
+- Family booking CTA: OK
+- Tip callouts: OK
+- Photo card styling: OK
 - Native login retained: OK
-- Server render retained: OK
-- Photo quality retained: OK
+- Native create retained: OK
+- Native delete retained: OK
 - GitHub retained: OK
 - Rakuten retained: OK
 - D1 retained: OK
 - Cron retained: OK
-- Delete button no onclick: OK
-
-本番Cloudflare D1/Secretsでのライブ削除はローカル環境では実行していません。
+- node --check: OK
