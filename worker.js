@@ -112,6 +112,43 @@ async function handleAdminLogin(request, env) {
   });
 }
 
+
+async function handleAdminAutoCreate(request, env) {
+  if (!requireAuth(request, env)) {
+    return new Response(null, { status:303, headers:{ location:"/admin.html?auto=unauthorized" } });
+  }
+  if (request.method !== "POST") {
+    return new Response(null, { status:303, headers:{ location:"/admin.html" } });
+  }
+
+  try {
+    const result = await autoCreateKyushuHotelArticle(env);
+    const q = new URLSearchParams();
+
+    if (result?.skipped) {
+      q.set("auto", "skip");
+      q.set("msg", String(result?.reason || "今回は候補がありませんでした").slice(0,180));
+    } else {
+      q.set("auto", "success");
+      q.set("msg", String(result?.hotelName || "記事を作成しました").slice(0,180));
+      if (result?.url) q.set("article", String(result.url));
+    }
+
+    return new Response(null, {
+      status:303,
+      headers:{ location:"/admin.html?" + q.toString(), "cache-control":"no-store" }
+    });
+  } catch (e) {
+    const q = new URLSearchParams();
+    q.set("auto", "error");
+    q.set("msg", String(e?.message || e).slice(0,180));
+    return new Response(null, {
+      status:303,
+      headers:{ location:"/admin.html?" + q.toString(), "cache-control":"no-store" }
+    });
+  }
+}
+
 function handleAdminLogout() {
   return new Response(null, {
     status:303,
@@ -1739,6 +1776,10 @@ async function loadAdminSnapshot(env) {
 
 async function adminPage(request, env) {
   const serverAuthed = requireAuth(request, env);
+  const adminUrl = new URL(request.url);
+  const autoResult = adminUrl.searchParams.get("auto") || "";
+  const autoMessage = adminUrl.searchParams.get("msg") || "";
+  const autoArticleUrl = adminUrl.searchParams.get("article") || "";
   const adminSnapshot = serverAuthed ? await loadAdminSnapshot(env) : {
     published:0, affiliateCount:0, successRuns:0, recentRuns:[], articles:[], lastRun:null, warning:""
   };
@@ -1806,10 +1847,12 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.0 / SERVER RENDER</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.1 / NATIVE CREATE</div>
       </div>
       <div class="heroActions">
-        <button id="dashAutoRunBtn" class="btn" type="button" onclick="autoHotelCreateDirect('dashAutoRunBtn')">今すぐ1記事作成</button>
+        <form method="post" action="/admin-auto-create" class="inlineNativeForm">
+          <button id="dashAutoRunNativeBtn" class="btn" type="submit">今すぐ1記事作成</button>
+        </form>
         <button id="dashRefreshBtn" class="btn sub" type="button" onclick="location.reload()">↻ 更新</button>
         <a id="logoutBtn" class="btn sub" href="/admin-logout">ログアウト</a>
       </div>
@@ -1828,7 +1871,13 @@ async function adminPage(request, env) {
           <div><div class="eyebrow">AUTOMATION</div><h2>自動作成ステータス</h2></div>
           <span id="autoStatusBadge" class="${initialStatusClass}">${initialStatusBadge}</span>
         </div>
-        <div id="dashAutoStatus" class="timelineBox">${initialStatusHtml}</div>
+        <div id="dashAutoStatus" class="timelineBox">${autoResult
+        ? (autoResult === "success"
+            ? `<b>記事作成完了 ✅</b><br>${esc(autoMessage)}${autoArticleUrl ? ` <a href="${esc(autoArticleUrl)}" target="_blank">記事を見る</a>` : ""}`
+            : autoResult === "skip"
+              ? `<b>今回はスキップ</b><br>${esc(autoMessage)}`
+              : `<b>記事作成エラー</b><br>${esc(autoMessage)}`)
+        : initialStatusHtml}</div>
         <div class="miniActions">
           <a class="btn sub" href="/" target="_blank">公開サイト</a>
           <a class="btn sub" href="/articles.html" target="_blank">記事一覧</a>
@@ -1872,7 +1921,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.0</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.1</div>
       </form>
     </section>
 
@@ -1914,8 +1963,16 @@ async function adminPage(request, env) {
       <div class="panel" style="margin:12px 0;background:#f7fbff">
         <h3 style="margin-top:0">🤖 九州ホテル完全自動化</h3>
         <p class="small">九州7県を順番に巡回し、楽天トラベルからファミリー向け候補を検索。評価・口コミを加味して未掲載ホテルを選び、楽天アフィリエイトURL付きの記事を自動公開します。</p>
-        <button id="autoHotelRunBtn" class="btn" type="button" onclick="autoHotelCreateDirect('autoHotelRunBtn')">今すぐ1記事を自動作成</button>
-        <div id="autoHotelStatus" class="small" style="margin-top:10px">状態を確認中...</div>
+        <form method="post" action="/admin-auto-create" class="inlineNativeForm">
+          <button id="autoHotelRunNativeBtn" class="btn" type="submit">今すぐ1記事を自動作成</button>
+        </form>
+        <div id="autoHotelStatus" class="small" style="margin-top:10px">${autoResult
+          ? (autoResult === "success"
+              ? `記事作成完了 ✅ ${esc(autoMessage)}`
+              : autoResult === "skip"
+                ? `今回はスキップ：${esc(autoMessage)}`
+                : `記事作成エラー：${esc(autoMessage)}`)
+          : `準備完了。ボタンを押すと1記事作成します。`}</div>
       </div>
       <div class="panel" style="margin:12px 0;background:#fbfffd">
         <h3 style="margin-top:0">🟥 楽天ホテル検索</h3>
@@ -1949,7 +2006,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.0 / SERVER RENDER</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.1 / SERVER RENDER</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       <div id="articleList">${adminArticlesHtml}</div>
@@ -2905,6 +2962,7 @@ export default {
       if (url.pathname === "/editorial-policy.html") return editorialPolicyPage(url);
       if (url.pathname === "/admin-login") return await handleAdminLogin(request, env);
       if (url.pathname === "/admin-logout") return handleAdminLogout();
+      if (url.pathname === "/admin-auto-create") return await handleAdminAutoCreate(request, env);
       if (url.pathname === "/admin.html") return await adminPage(request, env);
       return html(layout("ページが見つかりません", '<main class="article"><h1>404</h1><p>ページが見つかりません。</p></main>'), { status:404 });
     } catch (e) {
@@ -2912,3 +2970,5 @@ export default {
     }
   }
 };
+
+.inlineNativeForm{margin:0;display:inline-flex}
