@@ -278,7 +278,7 @@ a{color:inherit}.wrap{max-width:1080px;margin:auto;padding:0 20px}.header{positi
 .adminHero{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:28px;border-radius:26px;background:linear-gradient(135deg,#113e32,#168861);color:#fff;box-shadow:var(--shadow);margin:18px 0 20px}
 .adminHero h1{margin:4px 0 8px;font-size:clamp(27px,5vw,42px);line-height:1.15}.adminHero p{margin:0;color:rgba(255,255,255,.82)}
 .adminHero .eyebrow{color:#bde8d8}.adminHero .btn{background:#fff;color:#153b31;border-color:#fff}.adminHero .btn.sub{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.35)}
-.heroActions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.heroActions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.inlineNativeForm{margin:0;display:inline-flex}
 .statGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}
 .statCard{border:1px solid var(--line);background:#fff;border-radius:20px;padding:18px;box-shadow:0 8px 24px rgba(20,67,53,.05)}
 .statCard span{display:block;color:var(--muted);font-size:12px;font-weight:800}.statCard strong{display:inline-block;font-size:30px;line-height:1.2;margin:8px 4px 2px 0}.statCard small{color:var(--muted)}
@@ -1847,7 +1847,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.1 / NATIVE CREATE</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.2 / BUILD FIX</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -1921,7 +1921,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.1</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.2</div>
       </form>
     </section>
 
@@ -2006,7 +2006,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.1 / SERVER RENDER</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.2 / SERVER RENDER</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       <div id="articleList">${adminArticlesHtml}</div>
@@ -2971,4 +2971,3 @@ export default {
   }
 };
 
-.inlineNativeForm{margin:0;display:inline-flex}
