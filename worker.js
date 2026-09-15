@@ -149,6 +149,50 @@ async function handleAdminAutoCreate(request, env) {
   }
 }
 
+
+async function handleAdminDeleteArticle(request, env) {
+  if (!requireAuth(request, env)) {
+    return new Response(null, { status:303, headers:{ location:"/admin.html?delete=unauthorized" } });
+  }
+  if (request.method !== "POST") {
+    return new Response(null, { status:303, headers:{ location:"/admin.html" } });
+  }
+  if (!env.DB) {
+    return new Response(null, { status:303, headers:{ location:"/admin.html?delete=error&msg=D1%20binding%20missing" } });
+  }
+
+  try {
+    const form = await request.formData();
+    const id = String(form.get("id") || "").trim();
+    if (!id) {
+      return new Response(null, { status:303, headers:{ location:"/admin.html?delete=error&msg=id%20missing" } });
+    }
+
+    const row = await env.DB.prepare("SELECT id, title FROM articles WHERE id = ? LIMIT 1").bind(id).first();
+    if (!row) {
+      return new Response(null, { status:303, headers:{ location:"/admin.html?delete=notfound" } });
+    }
+
+    await env.DB.prepare("DELETE FROM articles WHERE id = ?").bind(id).run();
+
+    const q = new URLSearchParams();
+    q.set("delete", "success");
+    q.set("msg", String(row.title || id).slice(0,180));
+    return new Response(null, {
+      status:303,
+      headers:{ location:"/admin.html?" + q.toString(), "cache-control":"no-store" }
+    });
+  } catch (e) {
+    const q = new URLSearchParams();
+    q.set("delete", "error");
+    q.set("msg", String(e?.message || e).slice(0,180));
+    return new Response(null, {
+      status:303,
+      headers:{ location:"/admin.html?" + q.toString(), "cache-control":"no-store" }
+    });
+  }
+}
+
 function handleAdminLogout() {
   return new Response(null, {
     status:303,
@@ -313,7 +357,7 @@ details.adminFold>summary:after{content:"＋";font-size:22px;color:var(--green)}
 .contentMeta{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:7px;font-size:11px;color:var(--muted)}
 .miniBadge{display:inline-flex;padding:4px 8px;border-radius:999px;background:#f1f4f3;font-weight:800}
 .miniBadge.ok{background:#eaf7f1;color:#16714f}.miniBadge.affiliate{background:#fff5df;color:#8a6200}
-.contentActions{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;position:relative;z-index:20}.contentActions .btn{padding:10px 14px;font-size:13px;min-height:44px;touch-action:manipulation;position:relative;z-index:21}.dangerBtn{background:#fff1f1!important;color:#a52a2a!important;border-color:#efcaca!important}
+.contentActions{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;position:relative;z-index:20}.contentActions .btn{padding:10px 14px;font-size:13px;min-height:44px;touch-action:manipulation;position:relative;z-index:21}.dangerBtn{background:#fff1f1!important;color:#a52a2a!important;border-color:#efcaca!important}.nativeDeleteForm{margin:0;display:inline-flex}.nativeDeleteForm .dangerBtn{min-height:44px}
 .errorNotice{border-color:#efd0d0;background:#fff7f7}
 
 
@@ -1809,6 +1853,8 @@ async function adminPage(request, env) {
   const autoResult = adminUrl.searchParams.get("auto") || "";
   const autoMessage = adminUrl.searchParams.get("msg") || "";
   const autoArticleUrl = adminUrl.searchParams.get("article") || "";
+  const deleteResult = adminUrl.searchParams.get("delete") || "";
+  const deleteMessage = adminUrl.searchParams.get("msg") || "";
   const adminSnapshot = serverAuthed ? await loadAdminSnapshot(env) : {
     published:0, affiliateCount:0, successRuns:0, recentRuns:[], articles:[], lastRun:null, warning:""
   };
@@ -1830,7 +1876,10 @@ async function adminPage(request, env) {
           <div class="contentActions">
             <a class="btn sub" target="_blank" href="/article.html?id=${encodeURIComponent(a.id || "")}">表示</a>
             <button class="btn sub" type="button" onclick='articleEditDirect(${JSON.stringify(String(a.id || ""))})'>編集</button>
-            <button class="btn dangerBtn" type="button" onclick='articleDeleteDirect(${JSON.stringify(String(a.id || ""))},${JSON.stringify(String(a.title || ""))})'>削除</button>
+            <form method="post" action="/admin-delete-article" class="inlineNativeForm nativeDeleteForm">
+              <input type="hidden" name="id" value="${esc(a.id || "")}">
+              <button class="btn dangerBtn" type="submit">削除</button>
+            </form>
           </div>
         </div>`;
       }).join("")
@@ -1876,7 +1925,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.3 / PHOTO QUALITY</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v7.6.4 / NATIVE DELETE</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -1950,7 +1999,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.3</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v7.6.4</div>
       </form>
     </section>
 
@@ -2035,9 +2084,10 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.3 / SERVER RENDER</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v7.6.4 / NATIVE DELETE</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
+      ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
       <div id="articleList">${adminArticlesHtml}</div>
     </section>
   </main>
@@ -2991,6 +3041,7 @@ export default {
       if (url.pathname === "/editorial-policy.html") return editorialPolicyPage(url);
       if (url.pathname === "/admin-login") return await handleAdminLogin(request, env);
       if (url.pathname === "/admin-logout") return handleAdminLogout();
+      if (url.pathname === "/admin-delete-article") return await handleAdminDeleteArticle(request, env);
       if (url.pathname === "/admin-auto-create") return await handleAdminAutoCreate(request, env);
       if (url.pathname === "/admin.html") return await adminPage(request, env);
       return html(layout("ページが見つかりません", '<main class="article"><h1>404</h1><p>ページが見つかりません。</p></main>'), { status:404 });
