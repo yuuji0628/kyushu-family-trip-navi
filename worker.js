@@ -460,8 +460,10 @@ async function loadFreshArticleGallery(request, env, articleId) {
   const seen = new Set();
 
   for (const img of source) {
-    if (!img?.url || img.isThumbnail || !isAllowedArticleImageUrl(img.url) || seen.has(img.url)) continue;
-    seen.add(img.url);
+    if (!img?.url || img.isThumbnail || !isAllowedArticleImageUrl(img.url)) continue;
+    const key = canonicalArticleImageKey(img.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
     images.push({
       url: img.url,
       category: img.category || "other"
@@ -477,8 +479,10 @@ async function loadFreshArticleGallery(request, env, articleId) {
     ["room", selected?.roomThumbnailUrl]
   ];
   for (const [category, url] of fallbackFields) {
-    if (!url || !isAllowedArticleImageUrl(url) || seen.has(url)) continue;
-    seen.add(url);
+    if (!url || !isAllowedArticleImageUrl(url)) continue;
+    const key = canonicalArticleImageKey(url);
+    if (seen.has(key)) continue;
+    seen.add(key);
     images.push({url, category});
   }
 
@@ -552,6 +556,86 @@ async function articleFreshImage(request, env) {
   return new Response(null, {status:404});
 }
 
+
+function bytesToHex(bytes) {
+  return [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function imageResponseFromSource(src, request, env) {
+  try {
+    const pageUrl = new URL(request.url);
+    const absolute = new URL(src, pageUrl.origin);
+
+    if (absolute.origin === pageUrl.origin) {
+      if (absolute.pathname === "/media/article-image") {
+        return await articleFreshImage(new Request(absolute.toString(), {method:"GET"}), env);
+      }
+      if (absolute.pathname === "/media/image") {
+        return await articleImageProxy(new Request(absolute.toString(), {method:"GET"}));
+      }
+      return null;
+    }
+
+    if (!isAllowedArticleImageUrl(absolute.toString())) return null;
+    return await fetchImageResponse(absolute.toString());
+  } catch {
+    return null;
+  }
+}
+
+async function imageFingerprint(request, env) {
+  const url = new URL(request.url);
+  const src = url.searchParams.get("src") || "";
+  if (!src) return json({ok:false,error:"missing src"}, {status:400});
+
+  const cache = caches.default;
+  const cacheKey = new Request(
+    url.origin + "/__image-fingerprint-cache?src=" + encodeURIComponent(src)
+  );
+
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  const imageResponse = await imageResponseFromSource(src, request, env);
+  if (!imageResponse || !imageResponse.ok) {
+    return json({ok:false}, {status:404});
+  }
+
+  const contentType = String(imageResponse.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.startsWith("image/")) {
+    return json({ok:false}, {status:415});
+  }
+
+  let buffer;
+  try {
+    buffer = await imageResponse.arrayBuffer();
+  } catch {
+    return json({ok:false}, {status:502});
+  }
+
+  // Avoid hashing pathological responses.
+  if (!buffer.byteLength || buffer.byteLength > 12 * 1024 * 1024) {
+    return json({ok:false}, {status:413});
+  }
+
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  const hash = bytesToHex(digest);
+  const response = json({
+    ok:true,
+    hash,
+    bytes:buffer.byteLength,
+    contentType
+  }, {
+    headers:{"cache-control":"public, max-age=604800, s-maxage=2592000"}
+  });
+
+  try {
+    await cache.put(cacheKey, response.clone());
+  } catch {}
+
+  return response;
+}
+
 async function articleImageProxy(request) {
   const url = new URL(request.url);
   const src = url.searchParams.get("src") || "";
@@ -621,6 +705,41 @@ function markdownLite(src = "", articleId = "") {
 }
 
 
+
+function canonicalArticleImageKey(rawUrl = "") {
+  try {
+    const u = new URL(String(rawUrl || "").replace(/&amp;/g, "&"));
+    ["size","width","height","w","h","quality","q","resize","fit","crop","format","fm","auto","_","cache","timestamp","ts"]
+      .forEach(k => u.searchParams.delete(k));
+    let path = decodeURIComponent(u.pathname || "").toLowerCase();
+    path = path
+      .replace(/(?:[_-](?:thumb|thumbnail|small|medium|large|s|m|l))(?=\.[a-z0-9]+$)/g, "")
+      .replace(/(?:[_-]\d{2,4}x\d{2,4})(?=\.[a-z0-9]+$)/g, "")
+      .replace(/\/(?:thumb|thumbnail|small|medium|large)\//g, "/")
+      .replace(/\/+/g, "/");
+    return u.hostname.toLowerCase() + path + (u.searchParams.toString() ? "?" + u.searchParams.toString() : "");
+  } catch {
+    return String(rawUrl || "").trim().toLowerCase();
+  }
+}
+
+function removeDuplicateArticleImages(content = "") {
+  const seen = new Set();
+  const out = [];
+  for (const line of String(content || "").split("\n")) {
+    const m = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)\s*$/);
+    if (!m) {
+      out.push(line);
+      continue;
+    }
+    const key = canonicalArticleImageKey(m[2]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(line);
+  }
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function cleanReaderFacingArticle(content = "") {
   let text = String(content || "");
 
@@ -661,7 +780,7 @@ function cleanReaderFacingArticle(content = "") {
     cleaned.push(line);
   }
 
-  return cleaned.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return removeDuplicateArticleImages(cleaned.join("\n").replace(/\n{3,}/g, "\n\n").trim());
 }
 
 function articleToc(content = "") {
@@ -720,7 +839,7 @@ a{color:inherit}.wrap{max-width:1080px;margin:auto;padding:0 20px}.header{positi
 .familyToc{background:linear-gradient(180deg,#fffdf7,#fff9ec);border:1px solid #efe3bd;box-shadow:0 10px 28px rgba(106,86,31,.05)}.familyTocHead>div>span{width:38px;height:38px;border-radius:13px;background:#fff0bd;display:grid;place-items:center}.familyTocGrid a{background:rgba(255,255,255,.8);border:1px solid #eee4c7;min-height:46px}.familyTocGrid a:nth-child(3n+1) span{background:#0b9168}.familyTocGrid a:nth-child(3n+2) span{background:#e6a822}.familyTocGrid a:nth-child(3n+3) span{background:#5a87ba}
 .familyReadingLabel{margin:40px 0 8px;display:flex;align-items:center;justify-content:center;gap:10px;color:#5f776f;font-size:13px;letter-spacing:.06em}.familyReadingLabel span{color:#dfae2d}
 .familyArticleBody{position:relative}.familyArticleBody h2{position:relative;overflow:hidden;border:1px solid #dcece5;box-shadow:0 8px 22px rgba(20,67,53,.05);padding:18px 20px;background:linear-gradient(110deg,#e8f8f2 0%,#f8fdfb 72%)}.familyArticleBody h2:nth-of-type(3n+2){background:linear-gradient(110deg,#fff6dd 0%,#fffdf7 72%);border-color:#f2e5bf}.familyArticleBody h2:nth-of-type(3n+3){background:linear-gradient(110deg,#edf6ff 0%,#fbfdff 72%);border-color:#dce9f5}.familyArticleBody h2:after{content:"";position:absolute;right:-22px;top:-34px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.55)}.familyArticleBody h3{display:inline-flex;align-items:center;gap:8px;background:#163f34;color:#fff;border-radius:999px;padding:8px 13px;font-size:16px;margin-top:26px}.familyArticleBody h3:before{content:"●";font-size:8px;color:#ffd66f}.familyArticleBody ul{background:linear-gradient(180deg,#fcfffd,#f7fbf9);box-shadow:inset 0 0 0 1px #e4eee9}.familyArticleBody li::marker{color:#0b9168}.familyArticleBody>p{max-width:780px;margin-inline:auto}.familyArticleBody p{letter-spacing:.01em}
-.articlePhoto{background:#fff;padding:10px;border:1px solid #e4ece8;border-radius:28px!important;box-shadow:0 14px 36px rgba(19,65,52,.07)}.articlePhoto img{border-radius:20px!important;border:0!important}.articlePhoto figcaption{display:inline-flex;margin:9px 0 2px 4px;background:#f3f8f6;border-radius:999px;padding:6px 10px!important;font-size:11px!important}
+.articlePhoto{background:#fff;padding:10px;border:1px solid #e4ece8;border-radius:28px!important;box-shadow:0 14px 36px rgba(19,65,52,.07)}.familyArticleBody .articlePhoto:empty{display:none}.articlePhoto img{border-radius:20px!important;border:0!important}.articlePhoto figcaption{display:inline-flex;margin:9px 0 2px 4px;background:#f3f8f6;border-radius:999px;padding:6px 10px!important;font-size:11px!important}
 .editorPoint,.checkPoint,.memoPoint{box-shadow:0 9px 22px rgba(36,68,59,.05);border-left:0!important}.editorPoint{border:1px solid #cfe9de!important}.checkPoint{border:1px solid #f2df9c!important}.memoPoint{border:1px solid #dbe7f0!important}.familyTipIcon{box-shadow:0 6px 14px rgba(0,0,0,.06)}
 .familyAffiliate{border:0!important;box-shadow:0 14px 34px rgba(56,75,64,.07)}.familyAuthor{background:linear-gradient(135deg,#f1faf6,#fff);box-shadow:0 10px 28px rgba(25,69,56,.05);border:1px solid #dfece7}.familyRelated .relatedGrid a{border-radius:20px!important;box-shadow:0 10px 24px rgba(20,67,53,.05);border:1px solid #e1ebe6!important}
 .familyStickyBooking{display:none}
@@ -1090,6 +1209,79 @@ async function articlePage(env, url) {
 
     <div class="familyReadingLabel"><span>✦</span><b>家族目線で詳しくチェック</b><span>✦</span></div>
     <article class="articleBody familyArticleBody"><p>${markdownLite(readerContent, a.id)}</p></article>
+    <script>
+    (() => {
+      const urlSeen = new Set();
+      const hashSeen = new Map();
+
+      const figures = [...document.querySelectorAll('.familyArticleBody .articlePhoto')];
+
+      // Fast first pass: remove URL/resize variants immediately.
+      figures.forEach(figure => {
+        const img = figure.querySelector('img');
+        if (!img) return;
+        try {
+          const u = new URL(img.getAttribute('src') || img.src, location.href);
+          let path = decodeURIComponent(u.pathname || '').toLowerCase()
+            .replace(/(?:[_-](?:thumb|thumbnail|small|medium|large|s|m|l))(?=\.[a-z0-9]+$)/g,'')
+            .replace(/(?:[_-]\d{2,4}x\d{2,4})(?=\.[a-z0-9]+$)/g,'');
+          const key = u.hostname.toLowerCase() + path;
+          if (urlSeen.has(key)) {
+            figure.remove();
+          } else {
+            urlSeen.add(key);
+          }
+        } catch {}
+      });
+
+      // Second pass: compare actual image bytes by SHA-256.
+      const fingerprint = async img => {
+        const src = img.currentSrc || img.src || img.getAttribute('src');
+        if (!src) return null;
+        try {
+          const r = await fetch('/media/image-fingerprint?src=' + encodeURIComponent(src), {
+            credentials:'same-origin'
+          });
+          if (!r.ok) return null;
+          const data = await r.json();
+          return data && data.ok ? data.hash : null;
+        } catch {
+          return null;
+        }
+      };
+
+      const runContentDedupe = async () => {
+        const current = [...document.querySelectorAll('.familyArticleBody .articlePhoto')];
+        for (const figure of current) {
+          if (!figure.isConnected) continue;
+          const img = figure.querySelector('img');
+          if (!img) continue;
+
+          // Wait for the final image URL after direct/fallback loading.
+          if (!img.complete) {
+            await new Promise(resolve => {
+              const done = () => resolve();
+              img.addEventListener('load', done, {once:true});
+              img.addEventListener('error', done, {once:true});
+              setTimeout(resolve, 5000);
+            });
+          }
+
+          if (!figure.isConnected || !img.currentSrc && !img.src) continue;
+          const hash = await fingerprint(img);
+          if (!hash) continue;
+
+          if (hashSeen.has(hash)) {
+            figure.remove();
+          } else {
+            hashSeen.set(hash, figure);
+          }
+        }
+      };
+
+      runContentDedupe();
+    })();
+    </script>
 
     ${affiliateLinks ? `<section class="affiliate familyAffiliate"><div class="familySectionTitle"><span>🧳</span><h2>旅行予約をチェック</h2></div><div class="familyAffiliateButtons">${affiliateLinks}</div><div class="small">PR｜アフィリエイトリンクを含みます。料金・空室・条件はリンク先でご確認ください。</div></section>` : ""}
     ${faqHtml}
@@ -1412,8 +1604,9 @@ function buildFamilyHotelArticle(hotel) {
   const byUrl = new Map();
   for (const img of gallerySource) {
     if (!img?.url) continue;
-    const prev = byUrl.get(img.url);
-    if (!prev || (prev.isThumbnail && !img.isThumbnail)) byUrl.set(img.url, img);
+    const key = canonicalArticleImageKey(img.url);
+    const prev = byUrl.get(key);
+    if (!prev || (prev.isThumbnail && !img.isThumbnail)) byUrl.set(key, img);
   }
   const allImages = [...byUrl.values()];
   const originalsBy = category => allImages.filter(x => x.category === category && !x.isThumbnail);
@@ -1445,8 +1638,10 @@ function buildFamilyHotelArticle(hotel) {
   const uniqueSectionImages = items => {
     const out = [];
     for (const img of items || []) {
-      if (!img?.url || usedArticleImages.has(img.url)) continue;
-      usedArticleImages.add(img.url);
+      if (!img?.url) continue;
+      const key = canonicalArticleImageKey(img.url);
+      if (usedArticleImages.has(key)) continue;
+      usedArticleImages.add(key);
       out.push(img);
     }
     return out;
@@ -2509,8 +2704,9 @@ function normalizeRakutenImageGallery(item, basic = {}) {
 
   for (const img of raw) {
     if (!img.url) continue;
-    const prev = exact.get(img.url);
-    if (!prev || (isThumb(prev) && !isThumb(img))) exact.set(img.url, img);
+    const key = canonicalArticleImageKey(img.url);
+    const prev = exact.get(key);
+    if (!prev || (isThumb(prev) && !isThumb(img))) exact.set(key, img);
   }
 
   const arr = [...exact.values()].map(x => ({
@@ -2990,7 +3186,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.2.3 / FRESH IMAGE REPAIR</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.2.5 / CONTENT HASH DEDUPE</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -3064,7 +3260,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.2.3</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.2.5</div>
       </form>
     </section>
 
@@ -3152,7 +3348,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.2.3</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.2.5</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
@@ -3998,6 +4194,7 @@ export default {
       }
       if (url.pathname === "/" || url.pathname === "/index.html") return await homePage(env, url);
       if (url.pathname === "/media/article-image") return await articleFreshImage(request, env);
+      if (url.pathname === "/media/image-fingerprint") return await imageFingerprint(request, env);
       if (url.pathname === "/media/image") return await articleImageProxy(request);
       if (url.pathname === "/articles.html") return await articlesPage(env, url);
       if (url.pathname.startsWith("/guide/")) return await seoGuidePage(env, url);
