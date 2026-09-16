@@ -1,8 +1,15 @@
 事前検証済み
-- node --check: OK
-- Direct first renderer: OK
-- Proxy fallback: OK
-- Proxy route retained: OK
+- Worker syntax: OK
+- Fresh image endpoint: OK
+- Article id passed to renderer: OK
+- Direct URL first: OK
+- Fresh fallback: OK
+- Hide unrecoverable figure: OK
+- Fresh Rakuten keyword search: OK
+- Fresh detail lookup: OK
+- Fresh gallery cache: OK
+- Image category recovery: OK
+- Duplicate photo notes cleaned: OK
 - SEO MAX retained: OK
 - Photo-driven retained: OK
 - Family design retained: OK
@@ -13,5 +20,6 @@
 - GitHub retained: OK
 - D1 retained: OK
 - Cron retained: OK
+- node --check: OK
 
-※ 本番の楽天画像URLそのものの表示可否はCloudflare/楽天側条件に依存するため、ローカルではライブ表示未確認です。
+※ 楽天APIの本番画像返却とCloudflare Cacheは本番Worker環境が必要なため、ローカルでのライブ復旧までは未確認です。
