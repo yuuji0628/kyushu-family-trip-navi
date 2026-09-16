@@ -359,6 +359,199 @@ function imageFallbackSvg() {
   });
 }
 
+
+function articleImageCategoryFromAlt(alt = "") {
+  const s = String(alt || "");
+  if (/食事|朝食|夕食|レストラン|料理|ビュッフェ|バイキング/.test(s)) return "meal";
+  if (/プール|水遊び|アクア|ウォーター/.test(s)) return "pool";
+  if (/温泉|お風呂|浴場|大浴場|露天/.test(s)) return "bath";
+  if (/客室|内装|部屋|ベッド/.test(s)) return "room";
+  if (/宿泊プラン/.test(s)) return "plan";
+  if (/外観|館内|施設|ロビー/.test(s)) return "facility";
+  return "other";
+}
+
+async function fetchImageResponse(src) {
+  if (!isAllowedArticleImageUrl(src)) return null;
+
+  const attempts = [
+    {
+      "user-agent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1",
+      "accept":"image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      "referer":"https://travel.rakuten.co.jp/"
+    },
+    {
+      "user-agent":"Mozilla/5.0 AppleWebKit/537.36 Chrome/126 Safari/537.36",
+      "accept":"image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
+    }
+  ];
+
+  for (const headers of attempts) {
+    try {
+      const r = await fetch(src, {method:"GET", headers, redirect:"follow"});
+      const ct = String(r.headers.get("content-type") || "").toLowerCase();
+      if (r.ok && ct.startsWith("image/")) return r;
+    } catch {}
+  }
+  return null;
+}
+
+async function loadFreshArticleGallery(request, env, articleId) {
+  if (!articleId || !env.DB || !env.RAKUTEN_APPLICATION_ID || !env.RAKUTEN_ACCESS_KEY) {
+    return [];
+  }
+
+  const cache = caches.default;
+  const requestUrl = new URL(request.url);
+  const cacheKey = new Request(requestUrl.origin + "/__fresh-gallery-cache?id=" + encodeURIComponent(articleId));
+
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    try {
+      const data = await cached.json();
+      if (Array.isArray(data?.images)) return data.images;
+    } catch {}
+  }
+
+  const rows = await listArticles(env.DB, {id:articleId, published:false});
+  const article = rows[0];
+  if (!article) return [];
+
+  const hotelName = extractHotelNameFromArticle(article);
+  if (!hotelName) return [];
+
+  const params = new URLSearchParams({
+    applicationId: env.RAKUTEN_APPLICATION_ID,
+    accessKey: env.RAKUTEN_ACCESS_KEY,
+    format: "json",
+    formatVersion: "2",
+    keyword: hotelName,
+    searchField: "0",
+    hits: "10",
+    responseType: "middle",
+    hotelThumbnailSize: "3"
+  });
+  if (env.RAKUTEN_AFFILIATE_ID) params.set("affiliateId", env.RAKUTEN_AFFILIATE_ID);
+
+  const searchRes = await rakutenServerFetch(
+    "https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20260731?" + params.toString(),
+    env
+  );
+  if (!searchRes.ok) return [];
+
+  const candidates = normalizeHotelCandidates(searchRes.data);
+  if (!candidates.length) return [];
+
+  const compact = s => String(s || "").replace(/[　\s・･\-ー－（）()【】『』「」]/g, "").toLowerCase();
+  const target = compact(hotelName);
+
+  let selected =
+    candidates.find(h => compact(h.hotelName) === target) ||
+    candidates.find(h => compact(h.hotelName).includes(target) || target.includes(compact(h.hotelName))) ||
+    candidates[0];
+
+  if (selected?.hotelNo) {
+    const detailed = await fetchRakutenHotelDetail(selected.hotelNo, env);
+    if (detailed) selected = {...selected, ...detailed};
+  }
+
+  const source = Array.isArray(selected?.imageGallery) ? selected.imageGallery : [];
+  const images = [];
+  const seen = new Set();
+
+  for (const img of source) {
+    if (!img?.url || img.isThumbnail || !isAllowedArticleImageUrl(img.url) || seen.has(img.url)) continue;
+    seen.add(img.url);
+    images.push({
+      url: img.url,
+      category: img.category || "other"
+    });
+  }
+
+  // Common fields are kept as fallback if imageGallery is sparse.
+  const fallbackFields = [
+    ["hotel", selected?.hotelImageUrl],
+    ["room", selected?.roomImageUrl],
+    ["plan", selected?.planImageUrl],
+    ["hotel", selected?.hotelThumbnailUrl],
+    ["room", selected?.roomThumbnailUrl]
+  ];
+  for (const [category, url] of fallbackFields) {
+    if (!url || !isAllowedArticleImageUrl(url) || seen.has(url)) continue;
+    seen.add(url);
+    images.push({url, category});
+  }
+
+  const response = new Response(JSON.stringify({images}), {
+    headers:{
+      "content-type":"application/json; charset=utf-8",
+      "cache-control":"public, max-age=21600"
+    }
+  });
+  try {
+    await cache.put(cacheKey, response.clone());
+  } catch {}
+
+  return images;
+}
+
+async function articleFreshImage(request, env) {
+  const url = new URL(request.url);
+  const articleId = url.searchParams.get("id") || "";
+  const alt = url.searchParams.get("alt") || "";
+  const slot = Math.max(1, Number(url.searchParams.get("slot") || 1));
+  const oldSrc = url.searchParams.get("src") || "";
+
+  // If the old URL still works server-side, keep using it.
+  const oldResponse = await fetchImageResponse(oldSrc);
+  if (oldResponse) {
+    const headers = new Headers();
+    headers.set("content-type", oldResponse.headers.get("content-type") || "image/jpeg");
+    headers.set("cache-control", "public, max-age=86400, s-maxage=604800");
+    return new Response(oldResponse.body, {status:200, headers});
+  }
+
+  const gallery = await loadFreshArticleGallery(request, env, articleId);
+  if (!gallery.length) return new Response(null, {status:404});
+
+  const wanted = articleImageCategoryFromAlt(alt);
+  const preferredCategories = wanted === "facility"
+    ? ["facility","hotel","other","plan"]
+    : [wanted,"other","facility","hotel","plan"];
+
+  const ordered = [];
+  const used = new Set();
+  for (const category of preferredCategories) {
+    for (const img of gallery) {
+      if (img.category !== category || used.has(img.url)) continue;
+      used.add(img.url);
+      ordered.push(img);
+    }
+  }
+  for (const img of gallery) {
+    if (used.has(img.url)) continue;
+    used.add(img.url);
+    ordered.push(img);
+  }
+
+  if (!ordered.length) return new Response(null, {status:404});
+
+  // Start near the corresponding image slot, then try the rest.
+  const start = (slot - 1) % ordered.length;
+  for (let i = 0; i < ordered.length; i++) {
+    const candidate = ordered[(start + i) % ordered.length];
+    const imageResponse = await fetchImageResponse(candidate.url);
+    if (!imageResponse) continue;
+
+    const headers = new Headers();
+    headers.set("content-type", imageResponse.headers.get("content-type") || "image/jpeg");
+    headers.set("cache-control", "public, max-age=86400, s-maxage=604800");
+    return new Response(imageResponse.body, {status:200, headers});
+  }
+
+  return new Response(null, {status:404});
+}
+
 async function articleImageProxy(request) {
   const url = new URL(request.url);
   const src = url.searchParams.get("src") || "";
@@ -404,18 +597,20 @@ async function articleImageProxy(request) {
   }
 }
 
-function markdownLite(src = "") {
+function markdownLite(src = "", articleId = "") {
   const safe = esc(src);
   let h2Index = 0;
+  let imageIndex = 0;
   return safe
     .replace(/^&gt; POINT: (.+)$/gm, '<div class="editorPoint"><div class="familyTipIcon">💡</div><div><b>家族旅行ポイント</b><span>$1</span></div></div>')
     .replace(/^&gt; CHECK: (.+)$/gm, '<div class="checkPoint"><div class="familyTipIcon">✅</div><div><b>予約前チェック</b><span>$1</span></div></div>')
     .replace(/^&gt; MEMO: (.+)$/gm, '<div class="memoPoint"><div class="familyTipIcon">📝</div><div><b>ひとことメモ</b><span>$1</span></div></div>')
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, function(_, alt, rawUrl) {
+      imageIndex += 1;
       const htmlUrl = String(rawUrl || "");
       const imageUrl = htmlUrl.replace(/&amp;/g, "&");
-      const proxied = "/media/image?src=" + encodeURIComponent(imageUrl);
-      return `<figure class="articlePhoto"><img src="${htmlUrl}" data-proxy="${proxied}" alt="${alt}" loading="lazy" decoding="async" onerror="if(this.dataset.fallback!=='1'){this.dataset.fallback='1';this.src=this.dataset.proxy}else{this.onerror=null}"><figcaption>${alt}</figcaption></figure>`;
+      const fresh = "/media/article-image?id=" + encodeURIComponent(articleId || "") + "&alt=" + encodeURIComponent(String(alt || "")) + "&slot=" + imageIndex + "&src=" + encodeURIComponent(imageUrl);
+      return `<figure class="articlePhoto"><img src="${htmlUrl}" data-fresh="${fresh}" alt="${alt}" loading="lazy" decoding="async" onerror="if(this.dataset.fallback!=='1'){this.dataset.fallback='1';this.src=this.dataset.fresh}else{this.onerror=null;const f=this.closest('figure');if(f)f.remove()}"><figcaption>${alt}</figcaption></figure>`;
     })
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
     .replace(/^## (.+)$/gm, function(_, title){ h2Index += 1; return '<h2 id="section-'+h2Index+'">'+title+'</h2>'; })
@@ -437,6 +632,11 @@ function cleanReaderFacingArticle(content = "") {
 
   for (let line of lines) {
     const raw = line.trim();
+
+    // The image itself already has a caption. Hide duplicated markdown photo notes.
+    if (/^\*.*(?:写真|画像).*[。.]?\*$/.test(raw)) {
+      continue;
+    }
 
     if (
       /楽天トラベル(?:施設情報)?API/.test(raw) ||
@@ -889,7 +1089,7 @@ async function articlePage(env, url) {
     ${tocHtml}
 
     <div class="familyReadingLabel"><span>✦</span><b>家族目線で詳しくチェック</b><span>✦</span></div>
-    <article class="articleBody familyArticleBody"><p>${markdownLite(readerContent)}</p></article>
+    <article class="articleBody familyArticleBody"><p>${markdownLite(readerContent, a.id)}</p></article>
 
     ${affiliateLinks ? `<section class="affiliate familyAffiliate"><div class="familySectionTitle"><span>🧳</span><h2>旅行予約をチェック</h2></div><div class="familyAffiliateButtons">${affiliateLinks}</div><div class="small">PR｜アフィリエイトリンクを含みます。料金・空室・条件はリンク先でご確認ください。</div></section>` : ""}
     ${faqHtml}
@@ -1263,7 +1463,7 @@ function buildFamilyHotelArticle(hotel) {
   const articleAllRemainingImages = uniqueSectionImages(allImages.filter(x => !x.isThumbnail));
 
   const photoBlock = (url, alt, caption) => url
-    ? `![${alt}](${url})\n\n*${caption}*\n\n`
+    ? `![${alt}](${url})\n\n`
     : "";
 
   const photoGalleryBlock = (items, label, caption) => {
@@ -2790,7 +2990,7 @@ async function adminPage(request, env) {
       <div>
         <div class="eyebrow">KYUSHU FAMILY TRIP NAVI</div>
         <h1>🤖 自動運用ダッシュボード</h1>
-        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.2.2 / DIRECT-FIRST IMAGE</div>
+        <p>毎朝6:10の自動作成を中心に、記事・楽天API・実行履歴をひとつの画面で確認できます。</p><div class="small" style="margin-top:8px;color:rgba(255,255,255,.65)">dashboard v8.2.3 / FRESH IMAGE REPAIR</div>
       </div>
       <div class="heroActions">
         <form method="post" action="/admin-auto-create" class="inlineNativeForm">
@@ -2864,7 +3064,7 @@ async function adminPage(request, env) {
           <button id="githubCheckBtn" class="btn sub" type="button" onclick="githubCheckDirect()">接続確認</button>
         </div>
         <div id="githubUploadStatus" class="timelineBox" style="margin-top:12px">待機中</div>
-        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.2.2</div>
+        <div class="small" style="margin-top:8px;opacity:.65">GitHub panel v8.2.3</div>
       </form>
     </section>
 
@@ -2952,7 +3152,7 @@ async function adminPage(request, env) {
 
     <section id="articleListSection" class="smartCard adminSection">
       <div class="smartCardHead">
-        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.2.2</div></div>
+        <div><div class="eyebrow">CONTENT</div><h2>記事一覧</h2><div class="sectionHint">article list v8.2.3</div></div>
         <div class="miniActions" style="margin-top:0"><button class="btn sub" type="button" onclick="location.reload()">↻ 再読み込み</button><button id="newArticleTopBtn" class="btn sub" type="button">＋ 新規記事</button></div>
       </div>
       ${deleteResult ? `<div class="smartNotice ${deleteResult === "success" ? "" : "errorNotice"}" style="margin-bottom:12px">${deleteResult === "success" ? `削除しました ✅ ${esc(deleteMessage)}` : deleteResult === "notfound" ? "記事が見つかりませんでした。" : `削除エラー：${esc(deleteMessage)}`}</div>` : ""}
@@ -3797,6 +3997,7 @@ export default {
         return json({ ok: true, storage: "d1", featuredCount: rows.length, ids: rows.map(x => x.id) });
       }
       if (url.pathname === "/" || url.pathname === "/index.html") return await homePage(env, url);
+      if (url.pathname === "/media/article-image") return await articleFreshImage(request, env);
       if (url.pathname === "/media/image") return await articleImageProxy(request);
       if (url.pathname === "/articles.html") return await articlesPage(env, url);
       if (url.pathname.startsWith("/guide/")) return await seoGuidePage(env, url);
