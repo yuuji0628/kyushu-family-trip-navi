@@ -1,14 +1,19 @@
 事前検証済み
 - Worker syntax: OK
-- Fingerprint endpoint: OK
-- SHA-256 content hash: OK
-- Fingerprint cache: OK
-- Exact-content client dedupe: OK
-- URL dedupe retained: OK
+- New family editorial headline: OK
+- Baby perspective: OK
+- Preschool perspective: OK
+- School-age perspective: OK
+- Arrival-to-bed simulation: OK
+- Family total price focus: OK
+- Photo-driven family sections: OK
+- Hotel-specific score usage: OK
+- Pool-specific family copy: OK
+- Onsen-specific family copy: OK
+- Old reordering disabled: OK
+- Content hash dedupe retained: OK
 - Fresh image repair retained: OK
 - SEO MAX retained: OK
-- Photo-driven retained: OK
-- Family magazine retained: OK
 - Native hotel search retained: OK
 - Native login retained: OK
 - Native create retained: OK
@@ -18,4 +23,4 @@
 - Cron retained: OK
 - node --check: OK
 
-※ 本番画像に対するSHA-256比較のライブ動作はCloudflare Worker上で行われるため、ローカルでは未実施です。
+本番楽天API・D1・Cronを使ったライブ記事作成はCloudflare環境が必要なため、ローカルでは未実施です。
